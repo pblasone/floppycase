@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easyamiga"
+version = "0.1.0"
+description = "Plug-and-play setup for playing Amiga games on Linux with Amiberry"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "easyamiga contributors" }]
+keywords = ["amiga", "amiberry", "emulator", "whdload", "aros", "retro"]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "requests>=2.31",
+    "platformdirs>=4.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+easyamiga = "easyamiga.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/pblasone/easyamiga"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+easyamiga = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

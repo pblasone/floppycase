@@ -1,0 +1,175 @@
+"""Installation routine: fetch everything needed to play.
+
+This installs the Amiberry emulator (via its official apt repository), the
+small system tools easyamiga needs, the WHDLoad distribution, and the easyamiga
+application icon. Network steps are best-effort and idempotent so re-running
+``easyamiga install`` is always safe.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from importlib import resources
+from pathlib import Path
+
+import requests
+
+from . import amiberry
+from .paths import Paths
+
+WHDLOAD_URL = "https://whdload.de/whdload/WHDLoad_usr.lha"
+
+APT_REPO_INSTALLER = "https://packages.amiberry.com/install.sh"
+
+
+class InstallError(RuntimeError):
+    pass
+
+
+def _is_root() -> bool:
+    return os.geteuid() == 0
+
+
+def _sudo(cmd: list[str]) -> list[str]:
+    if _is_root():
+        return cmd
+    if shutil.which("sudo"):
+        return ["sudo", *cmd]
+    return cmd
+
+
+def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, check=False, text=True, **kwargs)
+
+
+# --- Amiberry ------------------------------------------------------------------
+def install_amiberry(log=print) -> bool:
+    """Install Amiberry from its official apt repository. Idempotent."""
+    if amiberry.is_installed():
+        log(f"Amiberry already installed at {amiberry.find_amiberry()}")
+        return True
+
+    if not shutil.which("apt-get"):
+        raise InstallError(
+            "Automatic Amiberry install currently supports Debian/Ubuntu (apt) only. "
+            "Install Amiberry manually: https://github.com/BlitterStudio/amiberry"
+        )
+
+    log("Adding the official Amiberry apt repository...")
+    # The installer script configures packages.amiberry.com as an apt source.
+    installer = _run(
+        _sudo(["sh", "-c", f"curl -fsSL {APT_REPO_INSTALLER} | sh"]),
+    )
+    if installer.returncode != 0:
+        raise InstallError(
+            "Failed to configure the Amiberry apt repository. Check network access."
+        )
+
+    log("Updating package lists...")
+    _run(_sudo(["apt-get", "update"]))
+    log("Installing Amiberry...")
+    result = _run(_sudo(["apt-get", "install", "-y", "amiberry"]))
+    if result.returncode != 0 or not amiberry.is_installed():
+        raise InstallError("apt failed to install the 'amiberry' package.")
+    log(f"Amiberry installed at {amiberry.find_amiberry()}")
+    return True
+
+
+def install_system_deps(log=print) -> None:
+    """Install small helper tools (currently: lhasa, to unpack WHDLoad .lha)."""
+    if shutil.which("lha") or shutil.which("lhasa"):
+        return
+    if not shutil.which("apt-get"):
+        return
+    log("Installing lhasa (for unpacking WHDLoad archives)...")
+    _run(_sudo(["apt-get", "install", "-y", "lhasa"]))
+
+
+# --- Downloads -----------------------------------------------------------------
+def download_file(url: str, dest: Path, log=print, timeout: int = 60) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    log(f"Downloading {url}")
+    with requests.get(url, stream=True, timeout=timeout) as response:
+        response.raise_for_status()
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        with tmp.open("wb") as handle:
+            for chunk in response.iter_content(chunk_size=1 << 16):
+                if chunk:
+                    handle.write(chunk)
+        tmp.replace(dest)
+    return dest
+
+
+def install_whdload(paths: Paths, log=print) -> bool:
+    """Download and unpack WHDLoad into the whdload directory. Best-effort."""
+    # The archive extracts into whdload/WHDLoad/... with the loader in C/.
+    marker = paths.whdload / "WHDLoad" / "C" / "WHDLoad"
+    if marker.exists():
+        log("WHDLoad already installed.")
+        return True
+
+    archive = paths.downloads / "WHDLoad_usr.lha"
+    try:
+        if not archive.exists():
+            download_file(WHDLOAD_URL, archive, log=log)
+    except Exception as exc:  # network / URL issues are non-fatal
+        log(f"Could not download WHDLoad ({exc}). Skipping - you can add it later.")
+        return False
+
+    paths.whdload.mkdir(parents=True, exist_ok=True)
+    lha = shutil.which("lha")
+    lhasa = shutil.which("lhasa")
+    result = None
+    if lha:
+        # `xfw=DIR` extracts (x) with force overwrite (f) into DIR (w) - non-interactive.
+        result = _run([lha, f"xfw={paths.whdload}", str(archive)],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if (result is None or result.returncode != 0) and lhasa:
+        result = _run([lhasa, "-f", "e", str(archive)], cwd=str(paths.whdload))
+    if result is None:
+        log("No lha/lhasa extractor found; leaving WHDLoad archive in downloads/.")
+        return False
+    if result.returncode == 0 and marker.exists():
+        log(f"WHDLoad unpacked into {paths.whdload}")
+        return True
+    log("WHDLoad extraction failed; archive kept in downloads/.")
+    return False
+
+
+# --- Icon ----------------------------------------------------------------------
+def install_icon(log=print) -> Path:
+    """Install the easyamiga icon into the user icon theme and return its path."""
+    target_dir = Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "easyamiga.svg"
+    source = resources.files("easyamiga.assets").joinpath("easyamiga.svg")
+    target.write_bytes(source.read_bytes())
+    log(f"Icon installed at {target}")
+    return target
+
+
+# --- Orchestration -------------------------------------------------------------
+def install_all(paths: Paths, log=print, with_whdload: bool = True) -> dict[str, bool]:
+    """Run the full install routine. Returns a summary of what succeeded."""
+    paths.ensure()
+    summary: dict[str, bool] = {}
+
+    install_system_deps(log=log)
+    try:
+        summary["amiberry"] = install_amiberry(log=log)
+    except InstallError as exc:
+        log(f"Amiberry install failed: {exc}")
+        summary["amiberry"] = False
+
+    try:
+        summary["icon"] = bool(install_icon(log=log))
+    except Exception as exc:  # icon is cosmetic
+        log(f"Icon install skipped: {exc}")
+        summary["icon"] = False
+
+    if with_whdload:
+        summary["whdload"] = install_whdload(paths, log=log)
+
+    return summary
