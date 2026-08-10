@@ -50,6 +50,19 @@ def _resolve_model(paths: Paths, explicit: Optional[str]) -> str:
     return default_model_key(detect_roms(paths.roms), DEFAULT_MODEL)
 
 
+def _usable_or_warn(rom: Optional[DetectedRom]) -> Optional[DetectedRom]:
+    """Drop an unusable (encrypted, keyless) ROM to AROS with a clear warning."""
+    if rom is not None and not rom.usable:
+        console.print(
+            f"[yellow]ROM '{rom.path.name}' is an encrypted Amiga Forever ROM and no "
+            "rom.key was found, so it can't be used. Falling back to the free AROS ROM.\n"
+            "Fix: copy 'rom.key' from Amiga Forever into ~/EasyAmiga/roms (easyamiga will "
+            "decode it), or run Amiga Forever once to get decrypted .rom files.[/yellow]"
+        )
+        return None
+    return rom
+
+
 def _resolve_rom(paths: Paths, rom_path: Optional[str], model_key: str) -> Optional[DetectedRom]:
     """Return the DetectedRom to use, or None to fall back to built-in AROS."""
     if rom_path:
@@ -148,7 +161,7 @@ def config(
                     model_key = kr.model
 
     amiga = get_model(model_key)
-    chosen_rom = _resolve_rom(paths, rom, amiga.key)
+    chosen_rom = _usable_or_warn(_resolve_rom(paths, rom, amiga.key))
     config_name = name or amiga.key
 
     options = ConfigOptions(model=amiga, paths=paths, rom=chosen_rom, show_gui=gui)
@@ -181,7 +194,7 @@ def add_game(
     paths = _paths(base)
     paths.ensure()
     amiga = get_model(_resolve_model(paths, model))
-    chosen_rom = _resolve_rom(paths, rom, amiga.key)
+    chosen_rom = _usable_or_warn(_resolve_rom(paths, rom, amiga.key))
 
     result = add_game_impl(
         paths=paths,
@@ -278,7 +291,7 @@ def scan(
     """Scan the games folder and register every game found."""
     paths = _paths(base)
     amiga = get_model(_resolve_model(paths, model))
-    rom = _resolve_rom(paths, None, amiga.key)
+    rom = _usable_or_warn(_resolve_rom(paths, None, amiga.key))
     games = scan_games(paths, amiga, rom=rom, create_launchers=launcher)
     added = sum(1 for g in games if g.newly_created)
 
@@ -322,17 +335,23 @@ def doctor(base: Optional[str] = BaseOption) -> None:
     table.add_row("Base directory", f"{paths.base} {'[green](exists)[/green]' if paths.base.exists() else '[yellow](missing - run init)[/yellow]'}")
     roms = detect_roms(paths.roms) if paths.roms.exists() else []
     known = [r for r in roms if r.known]
+    encrypted = [r for r in roms if r.encoded and not r.has_key]
     table.add_row("ROMs", f"{len(roms)} found, {len(known)} identified" if roms else "none (AROS fallback)")
+    if encrypted:
+        table.add_row(
+            "Encrypted ROMs",
+            f"[yellow]{len(encrypted)} need rom.key (copy it into {paths.roms})[/yellow]",
+        )
 
     if exe:
         arom = amiberry.rom_path()
         linked = len([p for p in arom.glob("*") if p.is_file() or p.is_symlink()]) if arom.exists() else 0
         table.add_row("Amiberry ROM path", f"{arom} ({linked} file(s))")
-        has_a1200 = any(r.known and r.known.model == "a1200" for r in roms)
+        has_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
         table.add_row(
             "WHDLoad Kickstart",
             "[green]A1200 KS 3.1 present[/green]" if has_a1200
-            else "[yellow]no A1200 KS 3.1 - WHDLoad games may not boot[/yellow]",
+            else "[yellow]no usable A1200 KS 3.1 - WHDLoad games may not boot[/yellow]",
         )
         booter = amiberry.whdboot_path() / "WHDLoad"
         table.add_row("WHDLoad Booter", "[green]ready[/green]" if booter.exists() else "[yellow]missing (run install)[/yellow]")

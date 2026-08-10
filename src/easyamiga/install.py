@@ -18,6 +18,7 @@ import requests
 
 from . import amiberry, desktop
 from .paths import Paths
+from .roms import detect_roms, find_rom_key
 
 WHDLOAD_URL = "https://whdload.de/whdload/WHDLoad_usr.lha"
 
@@ -172,20 +173,27 @@ def install_app_launcher(log=print) -> Path:
 
 
 # --- Kickstart / WHDLoad booter wiring -----------------------------------------
-def _looks_like_rom(path: Path) -> bool:
-    if not path.is_file():
-        return False
-    size = path.stat().st_size
-    return 128 * 1024 <= size <= 4 * 1024 * 1024
+def _place(src: Path, dest: Path) -> None:
+    """Symlink src -> dest, falling back to a copy where symlinks aren't allowed."""
+    if dest.is_symlink() or dest.exists():
+        try:
+            if dest.resolve() == src.resolve():
+                return
+        except OSError:
+            pass
+        dest.unlink()
+    try:
+        dest.symlink_to(src)
+    except OSError:
+        shutil.copy2(src, dest)
 
 
 def sync_kickstarts(paths: Paths, log=print) -> int:
     """Make the user's Kickstart ROMs visible to Amiberry's WHDLoad Booter.
 
-    Amiberry scans its own ROM path (e.g. ``~/Amiberry/ROMs``) and symlinks
-    recognised Kickstarts into the WHDLoad Booter's ``Kickstarts`` folder. Our
-    ROMs live under ``~/EasyAmiga/roms``, so we symlink them across. Returns the
-    number of ROMs made available.
+    Encoded Amiga Forever ROMs are decoded first (via ``rom.key``); the decoded
+    copies (or plain ROMs) are linked into Amiberry's ROM path so its ROM scan
+    and WHDLoad Booter recognise them by CRC. Returns the number made available.
     """
     if not amiberry.is_installed() or not paths.roms.exists():
         return 0
@@ -197,27 +205,32 @@ def sync_kickstarts(paths: Paths, log=print) -> int:
         return 0
 
     count = 0
-    for rom in sorted(paths.roms.rglob("*")):
-        if not _looks_like_rom(rom):
+    encrypted_unusable = 0
+    for rom in detect_roms(paths.roms):
+        if not rom.usable:
+            encrypted_unusable += 1
             continue
-        link = target_dir / rom.name
+        # rom.path already points at the decoded copy for encoded ROMs.
         try:
-            if link.is_symlink() or link.exists():
-                if link.resolve() == rom.resolve():
-                    count += 1
-                    continue
-                link.unlink()
-            link.symlink_to(rom)
+            _place(rom.path, target_dir / rom.path.name)
             count += 1
+        except OSError as exc:
+            log(f"Could not link ROM {rom.path.name}: {exc}")
+
+    key = find_rom_key(paths.roms)
+    if key is not None:
+        try:
+            _place(key, target_dir / "rom.key")
         except OSError:
-            # Fall back to copying if symlinks aren't permitted.
-            try:
-                shutil.copy2(rom, link)
-                count += 1
-            except OSError as exc:
-                log(f"Could not link ROM {rom.name}: {exc}")
+            pass
+
     if count:
         log(f"Made {count} Kickstart ROM(s) available to Amiberry at {target_dir}")
+    if encrypted_unusable:
+        log(
+            f"{encrypted_unusable} ROM(s) are encrypted (Amiga Forever) with no rom.key - "
+            "add rom.key to your roms folder, or decode them by running Amiga Forever once."
+        )
     return count
 
 
