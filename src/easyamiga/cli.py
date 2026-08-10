@@ -22,6 +22,7 @@ from .roms import (
     crc32_of,
     default_model_key,
     detect_roms,
+    is_encoded,
     pick_rom_for_model,
 )
 
@@ -307,6 +308,29 @@ def scan(
     console.print(f"Found {len(games)} game(s); [bold]{added}[/bold] newly added.")
 
 
+@app.command("sync-roms")
+def sync_roms(base: Optional[str] = BaseOption) -> None:
+    """Decode (if needed) and copy your Kickstart ROMs into Amiberry's ROM folder.
+
+    Run this after adding ROMs or a rom.key. Games launched via easyamiga do this
+    automatically, but this is handy after changing ROMs while Amiberry is set up.
+    """
+    paths = _paths(base)
+    if not amiberry.is_installed():
+        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        raise typer.Exit(1)
+    n = install_mod.sync_kickstarts(paths, log=console.print)
+    roms = detect_roms(paths.roms)
+    usable_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
+    console.print(f"Synced [bold]{n}[/bold] ROM(s) into {amiberry.rom_path()}.")
+    if usable_a1200:
+        console.print("[green]A1200 Kickstart 3.1 is available - WHDLoad auto-boot should work.[/green]")
+    console.print(
+        "Launch a game with [bold]easyamiga run <name>[/bold] or the GUI "
+        "(they rescan Amiberry's ROMs automatically)."
+    )
+
+
 @app.command()
 def gui(base: Optional[str] = BaseOption) -> None:
     """Launch the easyamiga desktop app (scan and click to play)."""
@@ -345,8 +369,15 @@ def doctor(base: Optional[str] = BaseOption) -> None:
 
     if exe:
         arom = amiberry.rom_path()
-        linked = len([p for p in arom.glob("*") if p.is_file() or p.is_symlink()]) if arom.exists() else 0
-        table.add_row("Amiberry ROM path", f"{arom} ({linked} file(s))")
+        arom_files = [p for p in arom.glob("*") if p.is_file() or p.is_symlink()] if arom.exists() else []
+        table.add_row("Amiberry ROM path", f"{arom} ({len(arom_files)} file(s))")
+        stale = [p for p in arom_files if is_encoded(p)]
+        if stale:
+            table.add_row(
+                "Stale encrypted copy",
+                f"[yellow]{len(stale)} still encrypted in Amiberry's ROMs - run "
+                "'easyamiga sync-roms'[/yellow]",
+            )
         has_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
         table.add_row(
             "WHDLoad Kickstart",
