@@ -12,7 +12,7 @@ from rich.table import Table
 
 from . import __version__, amiberry, install as install_mod
 from .config_gen import ConfigOptions, read_meta, write_config
-from .games import add_game as add_game_impl, list_configs, scan_games
+from .games import add_game as add_game_impl, list_configs, resolve_launch, scan_games
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import (
@@ -250,15 +250,14 @@ def run(
         console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
         raise typer.Exit(1)
 
-    meta = read_meta(config_path)
-    source = meta.get("source")
-    kind = meta.get("kind") or None
-    if kind == "whdload" and source and Path(source).exists():
-        # WHDLoad game: boot it via Amiberry's WHDLoad Booter (--autoload).
+    source, kind = resolve_launch(paths, config_path)
+    if kind == "whdload" and source is not None:
+        # WHDLoad game: boot it via Amiberry's WHDLoad Booter (--autoload),
+        # regardless of what a stale config said.
         install_mod.sync_kickstarts(paths, log=lambda *_: None)
-        console.print(f"Launching game: {Path(source).name}")
+        console.print(f"Launching game (WHDLoad auto-boot): {source.name}")
         try:
-            amiberry.launch_game(Path(source), kind, wait=True)
+            amiberry.launch_game(source, kind, wait=True)
         except FileNotFoundError as exc:
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1)
@@ -300,12 +299,13 @@ def scan(
     base: Optional[str] = BaseOption,
     model: Optional[str] = typer.Option(None, "--model", "-m", help=f"Model for newly found games ({', '.join(MODELS)}). Auto-detected from ROM if omitted."),
     launcher: bool = typer.Option(True, help="Create desktop launchers for new games."),
+    force: bool = typer.Option(False, "--force", help="Regenerate configs even if they already exist."),
 ) -> None:
     """Scan the games folder and register every game found."""
     paths = _paths(base)
     amiga = get_model(_resolve_model(paths, model))
     rom = _usable_or_warn(_resolve_rom(paths, None, amiga.key))
-    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher, roms_dir=_roms_dir(paths))
+    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher, overwrite=force, roms_dir=_roms_dir(paths))
     added = sum(1 for g in games if g.newly_created)
 
     table = Table(title=f"Scanned {paths.games}")

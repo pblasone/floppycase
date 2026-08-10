@@ -15,8 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import amiberry, install as install_mod
-from .config_gen import read_meta
-from .games import add_game, discover_game_sources, list_configs, scan_games
+from .games import add_game, discover_game_sources, list_configs, resolve_launch, scan_games
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import DetectedRom, default_model_key, detect_roms, pick_rom_for_model
@@ -244,14 +243,13 @@ class EasyAmigaGUI:
             )
             return
 
-        meta = read_meta(config_path)
-        source = meta.get("source")
-        kind = meta.get("kind") or None
+        source, kind = resolve_launch(self.paths, config_path)
         try:
-            if kind == "whdload" and source and Path(source).exists():
-                # WHDLoad game: boot via Amiberry's WHDLoad Booter (--autoload).
+            if kind == "whdload" and source is not None:
+                # WHDLoad game: boot via Amiberry's WHDLoad Booter (--autoload),
+                # regardless of what a stale config said.
                 install_mod.sync_kickstarts(self.paths, log=lambda *_: None)
-                amiberry.launch_game(Path(source), kind, wait=False)
+                amiberry.launch_game(source, kind, wait=False)
             else:
                 # ADF game (boots the floppy) or a bare machine: use the config.
                 amiberry.launch(config_path, wait=False)

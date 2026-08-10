@@ -1,7 +1,14 @@
 from pathlib import Path
 
 from easyamiga import desktop
-from easyamiga.games import add_game, classify, discover_game_sources, list_configs, scan_games
+from easyamiga.games import (
+    add_game,
+    classify,
+    discover_game_sources,
+    list_configs,
+    resolve_launch,
+    scan_games,
+)
 from easyamiga.models import get_model
 from easyamiga.paths import Paths
 
@@ -92,6 +99,39 @@ def test_scan_registers_and_is_idempotent(tmp_path, monkeypatch):
     second = scan_games(paths, get_model("a500"))
     assert len(second) == 2
     assert not any(g.newly_created for g in second)
+
+
+def test_resolve_launch_from_stale_config(tmp_path, monkeypatch):
+    """A config without launch metadata still resolves to the .lha and WHDLoad."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    lha = paths.games / "WormsDC.lha"
+    lha.write_bytes(b"x")
+    # Simulate an old easyamiga config: right name, no easyamiga_* metadata, A500.
+    stale = paths.configs / "WormsDC.uae"
+    stale.write_text("config_description=easyamiga: WormsDC (Amiga 500)\ncpu_model=68000\n")
+
+    source, kind = resolve_launch(paths, stale)
+    assert source == lha
+    assert kind == "whdload"
+
+
+def test_scan_heals_stale_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    lha = paths.games / "WormsDC.lha"
+    lha.write_bytes(b"x")
+    stale = paths.configs / "WormsDC.uae"
+    stale.write_text("config_description=old\ncpu_model=68000\n")
+
+    scan_games(paths, get_model("a1200"))
+    healed = stale.read_text()
+    # The stale config is regenerated with launch metadata and the new model.
+    assert "easyamiga_source=" in healed
+    assert "easyamiga_kind=whdload" in healed
+    assert "easyamiga_model=a1200" in healed
 
 
 def test_app_launcher_written(tmp_path, monkeypatch):

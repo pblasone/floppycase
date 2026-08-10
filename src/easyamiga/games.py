@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import desktop
-from .config_gen import ConfigOptions, write_config
+from .config_gen import ConfigOptions, read_meta, write_config
 from .models import AmigaModel
 from .paths import Paths
 from .roms import DetectedRom
@@ -118,6 +118,31 @@ def list_configs(paths: Paths) -> list[Path]:
     return sorted(paths.configs.glob("*.uae"))
 
 
+def resolve_launch(paths: Paths, config_path: Path) -> tuple[Path | None, str | None]:
+    """Work out the actual game file + kind for a config, authoritatively.
+
+    Prefers the config's embedded ``source`` metadata, but falls back to matching
+    the config name against files in the games folder (so old configs written
+    before launch metadata existed still launch correctly). The kind is always
+    re-derived from the real file, so a WHDLoad ``.lha`` always auto-boots even
+    if a stale config said otherwise.
+    """
+    meta = read_meta(config_path)
+    source: Path | None = None
+    stored = meta.get("source")
+    if stored:
+        candidate = Path(stored)
+        if candidate.exists():
+            source = candidate
+    if source is None:
+        for entry in discover_game_sources(paths):
+            if entry.stem == config_path.stem:
+                source = entry
+                break
+    kind = classify(source) if (source and source.exists()) else None
+    return source, kind
+
+
 def discover_game_sources(paths: Paths) -> list[Path]:
     """Top-level entries in the games directory that look like games."""
     if not paths.games.exists():
@@ -152,7 +177,10 @@ def scan_games(
     for source in discover_game_sources(paths):
         name = source.stem
         config_path = paths.config_file(name)
-        if config_path.exists() and not overwrite:
+        # Regenerate stale configs (missing launch metadata from older versions)
+        # so they get the right model and can be launched correctly.
+        stale = config_path.exists() and not read_meta(config_path).get("source")
+        if config_path.exists() and not overwrite and not stale:
             launcher = desktop.desktop_file_path(name)
             results.append(
                 Game(
