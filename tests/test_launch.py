@@ -79,3 +79,55 @@ def test_build_game_command_folder_with_lha_autoloads(tmp_path):
     cmd = amiberry.build_game_command(folder, kind="whdload", amiberry=FAKE_EXE)
     assert "--autoload" in cmd
     assert str(inner_lha) in cmd
+
+
+def test_clear_game_config_removes_cached_configs(tmp_path, monkeypatch):
+    cfgdir = tmp_path / "Configurations"
+    abdir = tmp_path / "Autoboots"
+    cfgdir.mkdir()
+    abdir.mkdir()
+    monkeypatch.setattr(amiberry, "config_path", lambda: cfgdir)
+    monkeypatch.setattr(amiberry, "autoboots_path", lambda: abdir)
+
+    (cfgdir / "WormsDC_AGA.uae").write_text("stale")
+    (abdir / "WormsDC_AGA.uae").write_text("stale")
+    (cfgdir / "Other.uae").write_text("keep")
+
+    removed = amiberry.clear_game_config(tmp_path / "WormsDC_AGA.lha")
+    assert len(removed) == 2
+    assert not (cfgdir / "WormsDC_AGA.uae").exists()
+    assert not (abdir / "WormsDC_AGA.uae").exists()
+    assert (cfgdir / "Other.uae").exists()
+
+
+def test_effective_roms_dir_prefers_amiberry(tmp_path, monkeypatch):
+    from easyamiga import install
+    from easyamiga.paths import Paths
+
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    amiga_dir = tmp_path / "Amiberry" / "ROMs"
+
+    monkeypatch.setattr(install.amiberry, "is_installed", lambda: False)
+    assert install.effective_roms_dir(paths) == paths.roms
+
+    monkeypatch.setattr(install.amiberry, "is_installed", lambda: True)
+    monkeypatch.setattr(install.amiberry, "rom_path", lambda: amiga_dir)
+    assert install.effective_roms_dir(paths) == amiga_dir
+
+
+def test_migrate_legacy_roms_copies_once(tmp_path):
+    from easyamiga import install
+    from easyamiga.paths import Paths
+
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    (paths.roms / "kick.rom").write_bytes(b"\x00" * (512 * 1024))
+    (paths.roms / "rom.key").write_bytes(b"key")
+    dest = tmp_path / "Amiberry" / "ROMs"
+
+    moved = install.migrate_legacy_roms(paths, dest)
+    assert moved == 2
+    assert (dest / "kick.rom").exists()
+    assert (dest / "rom.key").exists()
+    # Idempotent: nothing new copied on a second run.
+    assert install.migrate_legacy_roms(paths, dest) == 0

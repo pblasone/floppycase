@@ -78,6 +78,8 @@ easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
 | `easyamiga scan` | Scan the games folder and register every game found. |
 | `easyamiga add-game <path>` | Store a game, build its config, add a desktop icon. |
 | `easyamiga run <name>` | Boot the game (WHDLoad auto-boot for `.lha`, floppy for ADF). |
+| `easyamiga sync-roms` | Decode (if needed) and refresh your Kickstarts in Amiberry's ROM folder. |
+| `easyamiga clean-configs [name]` | Reset the WHDLoad booter's cached game config(s). |
 | `easyamiga list` | List detected ROMs and generated configs. |
 | `easyamiga doctor` | Report what is installed / configured / missing. |
 
@@ -104,8 +106,12 @@ If no ROM is found, the built-in **AROS** ROM is used automatically.
 
 Original **Kickstart ROMs and Workbench are copyrighted** and are *not*
 distributed with easyamiga. The legal way to obtain them is
-[Amiga Forever](https://www.amigaforever.com/). Drop your ROM files into
-`~/EasyAmiga/roms/` and easyamiga will detect them automatically.
+[Amiga Forever](https://www.amigaforever.com/).
+
+Once Amiberry is installed, easyamiga uses **Amiberry's own ROM folder**
+(`~/Amiberry/ROMs/`) as the single source of truth — drop your ROMs there (any
+ROMs found in the legacy `~/EasyAmiga/roms/` are migrated across automatically).
+`easyamiga doctor` prints the exact folder it's using.
 
 For a fully free setup, easyamiga uses the open-source
 [AROS](https://aros.org/) Kickstart replacement that ships with Amiberry.
@@ -115,12 +121,16 @@ For a fully free setup, easyamiga uses the open-source
 Amiga Forever often ships ROMs in Cloanto's *encoded* form (an `AMIROMTYPE1`
 header, scrambled with `rom.key`). Emulators can't boot these directly — they
 show up as an unknown ROM and the CPU crashes on start. If you have the
-`rom.key` file, **copy it into `~/EasyAmiga/roms/` alongside the ROMs** and
-easyamiga will decode them for you automatically (the decoded copies live in
-`roms/.easyamiga-decoded/`). If you don't have a `rom.key`, run Amiga Forever
-once (its newer versions decrypt the ROMs on first launch) and copy the
-resulting `.rom` files instead. `easyamiga doctor` flags encrypted ROMs and
-tells you exactly what to do.
+`rom.key` file, **copy it into the ROM folder alongside the ROMs** and easyamiga
+decodes them automatically into an `easyamiga-decoded/` subfolder that Amiberry
+also scans. If you don't have a `rom.key`, run Amiga Forever once (its newer
+versions decrypt the ROMs on first launch) and copy the resulting `.rom` files
+instead. `easyamiga doctor` flags encrypted ROMs and tells you exactly what to do.
+
+If a game got a bad auto-config before your ROMs were set up (e.g. stuck at
+68000), reset it with `easyamiga clean-configs <name>` — or launch it again,
+since easyamiga clears the WHDLoad booter's cached config on each launch so it
+regenerates against your current ROMs.
 
 ### How games are launched
 
