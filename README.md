@@ -110,6 +110,18 @@ distributed with easyamiga. The legal way to obtain them is
 For a fully free setup, easyamiga uses the open-source
 [AROS](https://aros.org/) Kickstart replacement that ships with Amiberry.
 
+### Amiga Forever (encrypted) ROMs
+
+Amiga Forever often ships ROMs in Cloanto's *encoded* form (an `AMIROMTYPE1`
+header, scrambled with `rom.key`). Emulators can't boot these directly — they
+show up as an unknown ROM and the CPU crashes on start. If you have the
+`rom.key` file, **copy it into `~/EasyAmiga/roms/` alongside the ROMs** and
+easyamiga will decode them for you automatically (the decoded copies live in
+`roms/.easyamiga-decoded/`). If you don't have a `rom.key`, run Amiga Forever
+once (its newer versions decrypt the ROMs on first launch) and copy the
+resulting `.rom` files instead. `easyamiga doctor` flags encrypted ROMs and
+tells you exactly what to do.
+
 ### How games are launched
 
 - **WHDLoad `.lha` games** boot via Amiberry's WHDLoad Booter (`amiberry

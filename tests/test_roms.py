@@ -55,3 +55,46 @@ def test_detect_ignores_tiny_files(tmp_path):
     roms_dir.mkdir()
     (roms_dir / "note.txt").write_text("not a rom")
     assert detect_roms(roms_dir) == []
+
+
+def _encode(plaintext: bytes, key: bytes) -> bytes:
+    from easyamiga.roms import AMIROMTYPE1
+
+    body = bytes(b ^ key[i % len(key)] for i, b in enumerate(plaintext))
+    return AMIROMTYPE1 + body
+
+
+def test_encoded_rom_without_key_is_flagged(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    plaintext = (b"KICK" * (512 * 1024 // 4))
+    (roms_dir / "amiga-os-310-a1200.rom").write_bytes(_encode(plaintext, b"secret"))
+
+    detected = detect_roms(roms_dir)
+    assert len(detected) == 1
+    rom = detected[0]
+    assert rom.encoded and not rom.has_key
+    assert not rom.usable
+    assert "ENCRYPTED" in rom.description.upper()
+
+
+def test_encoded_rom_is_decoded_with_key(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    key = b"\x11\x22\x33\x44\x55"
+    plaintext = bytes((i * 7) & 0xFF for i in range(512 * 1024))
+    (roms_dir / "amiga-os-310-a1200.rom").write_bytes(_encode(plaintext, key))
+    (roms_dir / "rom.key").write_bytes(key)
+
+    detected = detect_roms(roms_dir)
+    assert len(detected) == 1
+    rom = detected[0]
+    assert rom.encoded and rom.has_key and rom.usable
+    # Decoded content identity must match the original plaintext's CRC.
+    assert rom.crc32 == crc32_bytes_of(plaintext)
+    # The usable path points at the decoded copy, whose bytes equal the plaintext.
+    assert rom.path.read_bytes() == plaintext
+
+
+def crc32_bytes_of(data: bytes) -> str:
+    return f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"
