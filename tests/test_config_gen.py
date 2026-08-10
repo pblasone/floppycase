@@ -20,6 +20,8 @@ def test_a500_aros_config(tmp_path):
     assert f"uaehf0=dir,rw,DH0:Games:{paths.games},-10" in text
     # Boots straight into emulation by default
     assert "use_gui=no" in text
+    # Keep running when the window loses focus (better for click-to-play)
+    assert "inactive_pause=false" in text
 
 
 def test_a1200_config_uses_aga_and_020(tmp_path):
