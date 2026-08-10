@@ -29,6 +29,8 @@ gives every game a clickable desktop icon.
 - **Clickable game icons** – `easyamiga add-game` creates a freedesktop
   `.desktop` launcher so a game is one click away from your Linux application
   menu.
+- **Friendly desktop app** – `easyamiga gui` opens a simple window that scans
+  your games folder and shows each game as a big "▶ Play" tile.
 
 ## Quick start
 
@@ -40,15 +42,27 @@ pipx install .            # or: pip install .
 easyamiga install
 easyamiga init
 
-# 3a. Boot an Amiga right now with the free AROS ROM (no Kickstart needed)
+# 3. Drop games into ~/EasyAmiga/games, then open the app and click Play
+easyamiga gui
+```
+
+That's the easy path. The GUI scans your `games/` folder on open and shows every
+game as a big clickable tile — great for all ages.
+
+### Prefer the terminal?
+
+```bash
+# Boot an Amiga right now with the free AROS ROM (no Kickstart needed)
 easyamiga config --model a500
 easyamiga run a500
 
-# 3b. …or drop a Kickstart ROM into ~/EasyAmiga/roms first, then:
+# Or drop a Kickstart ROM into ~/EasyAmiga/roms first, then:
 easyamiga config          # auto-detects the ROM and picks the model
-easyamiga list            # see detected ROMs, configs
 
-# 4. Add a game and get a desktop icon for it
+# Scan the games folder and register everything found
+easyamiga scan
+
+# Add a single game and get a desktop icon for it
 easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
 ```
 
@@ -56,9 +70,11 @@ easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
 
 | Command | What it does |
 | --- | --- |
+| `easyamiga gui` | Open the desktop app: scan the games folder and click to play. |
 | `easyamiga init` | Create the `~/EasyAmiga` directory structure. |
 | `easyamiga install` | Install Amiberry, WHDLoad and the app icon. |
 | `easyamiga config` | Generate an Amiberry config (auto-detects ROM/model). |
+| `easyamiga scan` | Scan the games folder and register every game found. |
 | `easyamiga add-game <path>` | Store a game, build its config, add a desktop icon. |
 | `easyamiga run <name>` | Launch Amiberry with a generated config. |
 | `easyamiga list` | List detected ROMs and generated configs. |
