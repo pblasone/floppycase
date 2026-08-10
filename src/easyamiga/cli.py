@@ -350,8 +350,8 @@ def clean_configs(
 ) -> None:
     """Remove Amiberry's cached auto-generated game configs so they regenerate fresh.
 
-    Useful if a game got a bad auto-config (e.g. stuck at 68000) before your ROMs
-    were set up correctly.
+    Useful if a game got a bad auto-config (e.g. stuck at 68000, or a wrong
+    DATA path) before your ROMs/database were set up correctly.
     """
     paths = _paths(base)
     if not amiberry.is_installed():
@@ -367,19 +367,39 @@ def clean_configs(
     else:
         autoboots = amiberry.autoboots_path()
         if autoboots.exists():
-            for f in sorted(autoboots.glob("*.uae")):
-                try:
-                    f.unlink()
-                    removed.append(f)
-                except OSError:
-                    pass
+            for pattern in ("*.uae", "*.auto-startup"):
+                for f in sorted(autoboots.glob(pattern)):
+                    try:
+                        f.unlink()
+                        removed.append(f)
+                    except OSError:
+                        pass
 
     if removed:
-        console.print(f"Removed {len(removed)} cached config(s):")
+        console.print(f"Removed {len(removed)} cached file(s):")
         for r in removed:
             console.print(f"  {r}")
     else:
         console.print("No cached game configs to remove.")
+
+
+@app.command("repair-whdboot")
+def repair_whdboot(base: Optional[str] = BaseOption) -> None:
+    """Restore Amiberry's full WHDLoad game database if it was replaced by a stub.
+
+    A near-empty database causes almost every WHDLoad game to fail with
+    DOS-Error #205 (the booter can't find each game's data drawer).
+    """
+    paths = _paths(base)
+    if not amiberry.is_installed():
+        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        raise typer.Exit(1)
+    active, backup = install_mod.whdload_db_counts()
+    console.print(f"WHDLoad database: active={active} games, backup={backup} games.")
+    if install_mod.repair_whdload_db(log=console.print):
+        console.print("[green]Database restored.[/green] Re-launch your game (it will regenerate the boot config).")
+    else:
+        console.print("Database looks healthy; no repair needed.")
 
 
 @app.command()
@@ -429,6 +449,11 @@ def doctor(base: Optional[str] = BaseOption) -> None:
         )
         booter = amiberry.whdboot_path() / "WHDLoad"
         table.add_row("WHDLoad Booter", "[green]ready[/green]" if booter.exists() else "[yellow]missing (run install)[/yellow]")
+        active, backup = install_mod.whdload_db_counts()
+        if active < 100 and backup > active:
+            table.add_row("WHDLoad game DB", f"[yellow]{active} games (stub!) - run 'easyamiga repair-whdboot'[/yellow]")
+        else:
+            table.add_row("WHDLoad game DB", f"{active} games")
     table.add_row("Configs", str(len(list_configs(paths))))
     console.print(table)
 

@@ -259,17 +259,74 @@ def sync_kickstarts(paths: Paths, log=print) -> int:
     return usable
 
 
+def _db_game_count(path: Path) -> int:
+    import json
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+    except (OSError, ValueError):
+        return 0
+    games = data.get("games")
+    if isinstance(games, list):
+        return len(games)
+    try:
+        return int(data.get("game_count", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def whdload_db_counts() -> tuple[int, int]:
+    """(active game count, backup game count) for Amiberry's WHDLoad database."""
+    gd = amiberry.whdboot_path() / "game-data"
+    return _db_game_count(gd / "whdload_db.json"), _db_game_count(gd / "whdload_db.bak")
+
+
+def repair_whdload_db(log=print) -> bool:
+    """Restore the full WHDLoad game database if the active one is a stub.
+
+    Amiberry's ``--download-whdboot`` can replace the full ``whdload_db.json``
+    with a near-empty stub (backing the real one up to ``whdload_db.bak``). An
+    empty database makes the booter mis-configure almost every game
+    (DOS-Error #205). If the backup has many more games, restore it.
+    """
+    if not amiberry.is_installed():
+        return False
+    gd = amiberry.whdboot_path() / "game-data"
+    db = gd / "whdload_db.json"
+    bak = gd / "whdload_db.bak"
+    if not bak.exists():
+        return False
+    active = _db_game_count(db) if db.exists() else 0
+    full = _db_game_count(bak)
+    if full > 100 and full > active:
+        try:
+            shutil.copy2(bak, db)
+        except OSError as exc:
+            log(f"Could not restore WHDLoad database: {exc}")
+            return False
+        log(f"Restored WHDLoad game database ({full} games; was {active}).")
+        return True
+    return False
+
+
 def ensure_whdboot(log=print) -> bool:
-    """Ensure Amiberry's WHDLoad Booter assets exist (download if missing)."""
+    """Ensure Amiberry's WHDLoad Booter assets exist and the DB isn't a stub.
+
+    Note: we deliberately avoid ``--download-whdboot`` unless the booter is
+    entirely missing, because in some Amiberry builds it overwrites the full
+    game database with a tiny stub.
+    """
     if not amiberry.is_installed():
         return False
     booter = amiberry.whdboot_path() / "WHDLoad"
-    if booter.exists():
-        return True
-    exe = amiberry.find_amiberry()
-    log("Fetching Amiberry WHDLoad Booter assets...")
-    result = _run([exe, "--download-whdboot"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return result.returncode == 0
+    ok = True
+    if not booter.exists():
+        exe = amiberry.find_amiberry()
+        log("Fetching Amiberry WHDLoad Booter assets...")
+        result = _run([exe, "--download-whdboot"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ok = result.returncode == 0
+    repair_whdload_db(log=log)
+    return ok
 
 
 # --- Orchestration -------------------------------------------------------------
