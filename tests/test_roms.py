@@ -78,22 +78,27 @@ def test_encoded_rom_without_key_is_flagged(tmp_path):
     assert "ENCRYPTED" in rom.description.upper()
 
 
-def test_encoded_rom_is_decoded_with_key(tmp_path):
+def test_encoded_rom_is_decoded_in_place_with_key(tmp_path):
     roms_dir = tmp_path / "roms"
     roms_dir.mkdir()
     key = b"\x11\x22\x33\x44\x55"
     plaintext = bytes((i * 7) & 0xFF for i in range(512 * 1024))
-    (roms_dir / "amiga-os-310-a1200.rom").write_bytes(_encode(plaintext, key))
+    rom = roms_dir / "amiga-os-310-a1200.rom"
+    encoded_bytes = _encode(plaintext, key)
+    rom.write_bytes(encoded_bytes)
     (roms_dir / "rom.key").write_bytes(key)
 
     detected = detect_roms(roms_dir)
     assert len(detected) == 1
-    rom = detected[0]
-    assert rom.encoded and rom.has_key and rom.usable
-    # Decoded content identity must match the original plaintext's CRC.
-    assert rom.crc32 == crc32_bytes_of(plaintext)
-    # The usable path points at the decoded copy, whose bytes equal the plaintext.
-    assert rom.path.read_bytes() == plaintext
+    d = detected[0]
+    # After in-place decode the ROM is a plain, usable file at its original path.
+    assert d.usable and not d.encoded
+    assert d.path == rom
+    assert d.crc32 == crc32_bytes_of(plaintext)
+    assert rom.read_bytes() == plaintext
+    # The original encoded bytes are preserved as a .encoded backup.
+    backup = roms_dir / "amiga-os-310-a1200.rom.encoded"
+    assert backup.exists() and backup.read_bytes() == encoded_bytes
 
 
 def crc32_bytes_of(data: bytes) -> str:

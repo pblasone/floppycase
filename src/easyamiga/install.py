@@ -18,7 +18,7 @@ import requests
 
 from . import amiberry, desktop
 from .paths import Paths
-from .roms import detect_roms
+from .roms import decode_in_place, detect_roms
 
 WHDLOAD_URL = "https://whdload.de/whdload/WHDLoad_usr.lha"
 
@@ -236,6 +236,10 @@ def sync_kickstarts(paths: Paths, log=print) -> int:
         return 0
 
     migrate_legacy_roms(paths, dest, log=log)
+
+    decoded = decode_in_place(dest)
+    if decoded:
+        log(f"Decoded {decoded} Amiga Forever ROM(s) in place (originals kept as *.encoded)")
 
     usable = 0
     encrypted_unusable = 0

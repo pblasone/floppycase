@@ -23,9 +23,11 @@ AROS = ":AROS"
 
 #: Header on Cloanto/Amiga Forever encoded ROMs.
 AMIROMTYPE1 = b"AMIROMTYPE1"
-#: Where easyamiga writes decoded copies of encoded ROMs (inside the ROM dir).
-#: Deliberately NOT hidden so Amiberry's recursive ROM scan picks it up too.
+#: Legacy subfolder some older versions wrote decoded copies to (still ignored).
 DECODED_DIRNAME = "easyamiga-decoded"
+#: Suffix for the backup easyamiga keeps of an original encoded ROM before it
+#: decodes it in place.
+DECODED_BACKUP_SUFFIX = ".encoded"
 #: Common names for the Amiga Forever decode key.
 ROM_KEY_NAMES = {"rom.key"}
 #: Files/dirs to ignore when scanning (Amiberry's own AROS + MT32 assets).
@@ -36,7 +38,9 @@ IGNORED_DIRNAMES = {DECODED_DIRNAME, "mt32-roms"}
 def _skip(path: Path) -> bool:
     if any(part in IGNORED_DIRNAMES for part in path.parts):
         return True
-    return path.name in IGNORED_ROM_NAMES
+    if path.name in IGNORED_ROM_NAMES:
+        return True
+    return path.name.endswith(DECODED_BACKUP_SUFFIX)
 
 
 @dataclass(frozen=True)
@@ -156,76 +160,55 @@ def decode_encoded_file(rom_path: Path, key_path: Path) -> bytes:
     return decode_encoded_bytes(data, key_path.read_bytes())
 
 
-def prepare_decoded(roms_dir: Path) -> dict[str, Path]:
-    """Decode any encoded ROMs into ``<roms_dir>/.easyamiga-decoded``.
+def decode_in_place(roms_dir: Path) -> int:
+    """Decode encoded Amiga Forever ROMs *in place* using ``rom.key``.
 
-    Returns a mapping of original-file-name -> decoded-file path. Idempotent:
-    a decoded copy is (re)written only when missing or out of date.
+    The original encoded file is backed up alongside it as ``<name>.encoded``
+    and the ROM at its original path is overwritten with the decoded bytes, so
+    every emulator config that references the ROM by path gets a working ROM.
+    Idempotent: an already-decoded (plain) ROM is left alone. Returns the number
+    of ROMs decoded on this call.
     """
     if not roms_dir.exists():
-        return {}
+        return 0
     key = find_rom_key(roms_dir)
     if key is None:
-        return {}
-    cache = roms_dir / DECODED_DIRNAME
-    produced: dict[str, Path] = {}
+        return 0
+    decoded_count = 0
     for rom in sorted(roms_dir.rglob("*")):
-        if _skip(rom):
+        if _skip(rom) or not _looks_like_rom(rom) or not is_encoded(rom):
             continue
-        if not _looks_like_rom(rom) or not is_encoded(rom):
+        try:
+            decoded = decode_encoded_file(rom, key)
+        except (OSError, ValueError):
             continue
-        target = cache / rom.name
-        fresh = (
-            target.exists()
-            and target.stat().st_mtime >= rom.stat().st_mtime
-            and target.stat().st_mtime >= key.stat().st_mtime
-        )
-        if not fresh:
-            cache.mkdir(parents=True, exist_ok=True)
-            try:
-                target.write_bytes(decode_encoded_file(rom, key))
-            except (OSError, ValueError):
-                continue
-        produced[rom.name] = target
-    return produced
+        backup = rom.with_name(rom.name + DECODED_BACKUP_SUFFIX)
+        try:
+            if not backup.exists():
+                backup.write_bytes(rom.read_bytes())
+            rom.write_bytes(decoded)
+            decoded_count += 1
+        except OSError:
+            continue
+    return decoded_count
 
 
 def detect_roms(roms_dir: Path) -> list[DetectedRom]:
     """Scan ``roms_dir`` and return every candidate ROM, decoding encoded ones."""
     if not roms_dir.exists():
         return []
-    decoded = prepare_decoded(roms_dir)
+    decode_in_place(roms_dir)  # decode Amiga Forever ROMs in place (needs rom.key)
     detected: list[DetectedRom] = []
     for path in sorted(roms_dir.rglob("*")):
-        if _skip(path):
+        if _skip(path) or not _looks_like_rom(path):
             continue
-        if not _looks_like_rom(path):
-            continue
+        crc = crc32_of(path)
         if is_encoded(path):
-            decoded_path = decoded.get(path.name)
-            if decoded_path and decoded_path.exists():
-                crc = crc32_of(decoded_path)
-                detected.append(
-                    DetectedRom(
-                        path=decoded_path,
-                        crc32=crc,
-                        known=KNOWN_ROMS.get(crc),
-                        encoded=True,
-                        has_key=True,
-                    )
-                )
-            else:
-                crc = crc32_of(path)
-                known = None
-                enc = ENCODED_ROMS.get(crc)
-                if enc:
-                    # Synthesize a KnownRom so model auto-detection still works.
-                    known = KnownRom(crc, enc[1], enc[0], "")
-                detected.append(
-                    DetectedRom(path=path, crc32=crc, known=known, encoded=True, has_key=False)
-                )
+            # Still encoded => no key available to decode it.
+            enc = ENCODED_ROMS.get(crc)
+            known = KnownRom(crc, enc[1], enc[0], "") if enc else None
+            detected.append(DetectedRom(path=path, crc32=crc, known=known, encoded=True, has_key=False))
         else:
-            crc = crc32_of(path)
             detected.append(DetectedRom(path=path, crc32=crc, known=KNOWN_ROMS.get(crc)))
     return detected
 
