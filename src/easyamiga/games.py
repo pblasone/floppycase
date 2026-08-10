@@ -23,6 +23,7 @@ class Game:
     stored: Path
     config_path: Path
     desktop_path: Path | None = None
+    newly_created: bool = True
 
 
 def classify(source: Path) -> str:
@@ -56,17 +57,7 @@ def _store_game(paths: Paths, source: Path) -> Path:
 
 
 def _exec_command(config_name: str) -> str:
-    # Prefer an absolute path so the launcher works regardless of the desktop
-    # session's PATH: the easyamiga on PATH, else the running script, else bare.
-    import sys
-
-    exe = shutil.which("easyamiga")
-    if not exe:
-        argv0 = Path(sys.argv[0]) if sys.argv and sys.argv[0] else None
-        if argv0 and argv0.name == "easyamiga" and argv0.exists():
-            exe = str(argv0.resolve())
-    exe = exe or "easyamiga"
-    return f'{exe} run "{config_name}"'
+    return f'{desktop.easyamiga_exe()} run "{config_name}"'
 
 
 def add_game(
@@ -119,3 +110,62 @@ def list_configs(paths: Paths) -> list[Path]:
     if not paths.configs.exists():
         return []
     return sorted(paths.configs.glob("*.uae"))
+
+
+def discover_game_sources(paths: Paths) -> list[Path]:
+    """Top-level entries in the games directory that look like games."""
+    if not paths.games.exists():
+        return []
+    sources: list[Path] = []
+    for entry in sorted(paths.games.iterdir()):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_dir():
+            sources.append(entry)
+        elif entry.suffix.lower() in (ADF_SUFFIXES | WHDLOAD_SUFFIXES):
+            sources.append(entry)
+    return sources
+
+
+def scan_games(
+    paths: Paths,
+    model: AmigaModel,
+    rom: DetectedRom | None = None,
+    create_launchers: bool = True,
+    overwrite: bool = False,
+) -> list[Game]:
+    """Register every game found in the games directory.
+
+    Idempotent: games that already have a config are left as-is (unless
+    ``overwrite`` is set) but still returned so callers get the full list.
+    Newly registered games have ``newly_created=True``.
+    """
+    paths.ensure()
+    results: list[Game] = []
+    for source in discover_game_sources(paths):
+        name = source.stem
+        config_path = paths.config_file(name)
+        if config_path.exists() and not overwrite:
+            launcher = desktop.desktop_file_path(name)
+            results.append(
+                Game(
+                    name=name,
+                    kind=classify(source),
+                    stored=source,
+                    config_path=config_path,
+                    desktop_path=launcher if launcher.exists() else None,
+                    newly_created=False,
+                )
+            )
+            continue
+        results.append(
+            add_game(
+                paths=paths,
+                source=source,
+                model=model,
+                name=name,
+                rom=rom,
+                create_launcher=create_launchers,
+            )
+        )
+    return results

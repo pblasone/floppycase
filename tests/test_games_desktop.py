@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from easyamiga import desktop
-from easyamiga.games import add_game, classify, list_configs
+from easyamiga.games import add_game, classify, discover_game_sources, list_configs, scan_games
 from easyamiga.models import get_model
 from easyamiga.paths import Paths
 
@@ -65,3 +65,39 @@ def test_desktop_slug_and_render():
     entry = desktop.render_desktop_entry("Turrican II!", "easyamiga run turrican", "easyamiga")
     assert "Name=Turrican II!" in entry
     assert desktop.desktop_file_path("Turrican II!").name == "easyamiga-game-turrican-ii.desktop"
+
+
+def test_scan_registers_and_is_idempotent(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+
+    # Drop two games directly into the games folder.
+    (paths.games / "Chaos.adf").write_bytes(b"\x00" * (880 * 1024))
+    whd = paths.games / "Turrican"
+    whd.mkdir()
+    (whd / "Turrican.slave").write_bytes(b"\x00" * 100)
+    # A stray hidden/junk entry that must be ignored.
+    (paths.games / ".DS_Store").write_bytes(b"junk")
+
+    sources = discover_game_sources(paths)
+    assert {s.name for s in sources} == {"Chaos.adf", "Turrican"}
+
+    first = scan_games(paths, get_model("a500"))
+    assert len(first) == 2
+    assert all(g.newly_created for g in first)
+    assert len(list_configs(paths)) == 2
+
+    # Second scan finds the same games but registers nothing new.
+    second = scan_games(paths, get_model("a500"))
+    assert len(second) == 2
+    assert not any(g.newly_created for g in second)
+
+
+def test_app_launcher_written(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    target = desktop.write_app_launcher()
+    assert target.exists()
+    text = target.read_text()
+    assert "Name=easyamiga" in text
+    assert "gui" in text

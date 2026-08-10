@@ -16,7 +16,7 @@ from pathlib import Path
 
 import requests
 
-from . import amiberry
+from . import amiberry, desktop
 from .paths import Paths
 
 WHDLOAD_URL = "https://whdload.de/whdload/WHDLoad_usr.lha"
@@ -77,14 +77,28 @@ def install_amiberry(log=print) -> bool:
     return True
 
 
+def _has_tkinter() -> bool:
+    try:
+        import tkinter  # noqa: F401
+
+        return True
+    except Exception:
+        return False
+
+
 def install_system_deps(log=print) -> None:
-    """Install small helper tools (currently: lhasa, to unpack WHDLoad .lha)."""
-    if shutil.which("lha") or shutil.which("lhasa"):
-        return
+    """Install small helper tools: lhasa (WHDLoad .lha) and python3-tk (GUI)."""
     if not shutil.which("apt-get"):
         return
-    log("Installing lhasa (for unpacking WHDLoad archives)...")
-    _run(_sudo(["apt-get", "install", "-y", "lhasa"]))
+    packages = []
+    if not (shutil.which("lha") or shutil.which("lhasa")):
+        packages.append("lhasa")
+    if not _has_tkinter():
+        packages.append("python3-tk")
+    if not packages:
+        return
+    log(f"Installing helper packages: {', '.join(packages)}...")
+    _run(_sudo(["apt-get", "install", "-y", *packages]))
 
 
 # --- Downloads -----------------------------------------------------------------
@@ -150,6 +164,13 @@ def install_icon(log=print) -> Path:
     return target
 
 
+def install_app_launcher(log=print) -> Path:
+    """Install a desktop-menu launcher for the easyamiga GUI."""
+    target = desktop.write_app_launcher()
+    log(f"App launcher installed at {target}")
+    return target
+
+
 # --- Orchestration -------------------------------------------------------------
 def install_all(paths: Paths, log=print, with_whdload: bool = True) -> dict[str, bool]:
     """Run the full install routine. Returns a summary of what succeeded."""
@@ -168,6 +189,12 @@ def install_all(paths: Paths, log=print, with_whdload: bool = True) -> dict[str,
     except Exception as exc:  # icon is cosmetic
         log(f"Icon install skipped: {exc}")
         summary["icon"] = False
+
+    try:
+        summary["app_launcher"] = bool(install_app_launcher(log=log))
+    except Exception as exc:  # launcher is cosmetic
+        log(f"App launcher skipped: {exc}")
+        summary["app_launcher"] = False
 
     if with_whdload:
         summary["whdload"] = install_whdload(paths, log=log)

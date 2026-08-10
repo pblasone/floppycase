@@ -23,6 +23,7 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 easyamiga = "easyamiga.cli:main"
+easyamiga-gui = "easyamiga.gui:main"
 
 [project.urls]
 Homepage = "https://github.com/pblasone/easyamiga"

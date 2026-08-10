@@ -11,7 +11,7 @@ VENV="$HOME/.easyamiga-venv"
 echo "==> Installing system packages"
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends \
-  python3-venv python3-pip curl ca-certificates lhasa
+  python3-venv python3-pip python3-tk curl ca-certificates lhasa
 
 echo "==> Creating Python virtualenv at $VENV"
 if [ ! -x "$VENV/bin/python" ]; then

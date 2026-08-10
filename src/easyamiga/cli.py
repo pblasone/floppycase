@@ -12,7 +12,7 @@ from rich.table import Table
 
 from . import __version__, amiberry, install as install_mod
 from .config_gen import ConfigOptions, write_config
-from .games import add_game as add_game_impl, list_configs
+from .games import add_game as add_game_impl, list_configs, scan_games
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import AROS, DetectedRom, crc32_of, detect_roms, pick_rom_for_model, KNOWN_ROMS
@@ -59,10 +59,11 @@ def init(base: Optional[str] = BaseOption) -> None:
     """Create the easyamiga directory structure."""
     paths = _paths(base)
     paths.ensure()
-    try:
-        install_mod.install_icon(log=lambda *_: None)
-    except Exception:
-        pass
+    for step in (install_mod.install_icon, install_mod.install_app_launcher):
+        try:
+            step(log=lambda *_: None)
+        except Exception:
+            pass
 
     table = Table(title=f"easyamiga initialised at {paths.base}", show_header=True)
     table.add_column("Directory")
@@ -236,6 +237,46 @@ def list_cmd(base: Optional[str] = BaseOption) -> None:
     if not list_configs(paths):
         cfg_table.add_row("(none)", "-")
     console.print(cfg_table)
+
+
+@app.command()
+def scan(
+    base: Optional[str] = BaseOption,
+    model: str = typer.Option(DEFAULT_MODEL, "--model", "-m", help=f"Model for newly found games ({', '.join(MODELS)})."),
+    launcher: bool = typer.Option(True, help="Create desktop launchers for new games."),
+) -> None:
+    """Scan the games folder and register every game found."""
+    paths = _paths(base)
+    amiga = get_model(model)
+    rom = _resolve_rom(paths, None, amiga.key)
+    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher)
+    added = sum(1 for g in games if g.newly_created)
+
+    table = Table(title=f"Scanned {paths.games}")
+    table.add_column("Game")
+    table.add_column("Type")
+    table.add_column("Status")
+    for g in games:
+        table.add_row(g.name, g.kind, "[green]new[/green]" if g.newly_created else "already registered")
+    if not games:
+        table.add_row("(none)", "-", "drop games into the folder first")
+    console.print(table)
+    console.print(f"Found {len(games)} game(s); [bold]{added}[/bold] newly added.")
+
+
+@app.command()
+def gui(base: Optional[str] = BaseOption) -> None:
+    """Launch the easyamiga desktop app (scan and click to play)."""
+    try:
+        from .gui import run_gui
+    except Exception as exc:  # tkinter missing, etc.
+        console.print(
+            f"[red]Could not start the GUI ({exc}).[/red]\n"
+            "Make sure Tk is installed (e.g. 'sudo apt install python3-tk'), "
+            "or run 'easyamiga install'."
+        )
+        raise typer.Exit(1)
+    run_gui(base)
 
 
 @app.command()
