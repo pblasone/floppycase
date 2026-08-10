@@ -68,6 +68,7 @@ def add_game(
     rom: DetectedRom | None = None,
     create_launcher: bool = True,
     icon: str = "easyamiga",
+    roms_dir: Path | None = None,
 ) -> Game:
     """Register a game: store it, generate a config, and add a desktop launcher."""
     source = source.expanduser()
@@ -90,6 +91,7 @@ def add_game(
         kind=kind,
         # ADF games boot the floppy directly; no games-HD mount needed.
         mount_games=(kind != "adf"),
+        roms_dir=roms_dir,
     )
     config_path = write_config(options, game_name)
 
@@ -137,6 +139,7 @@ def scan_games(
     rom: DetectedRom | None = None,
     create_launchers: bool = True,
     overwrite: bool = False,
+    roms_dir: Path | None = None,
 ) -> list[Game]:
     """Register every game found in the games directory.
 
@@ -170,6 +173,7 @@ def scan_games(
                 name=name,
                 rom=rom,
                 create_launcher=create_launchers,
+                roms_dir=roms_dir,
             )
         )
     return results

@@ -72,6 +72,47 @@ def whdboot_path() -> Path:
     return Path.home() / ".local" / "share" / "amiberry" / "WHDBoot"
 
 
+def config_path() -> Path:
+    resolved = dump_paths().get("config_path")
+    if resolved:
+        return Path(resolved)
+    return Path.home() / "Amiberry" / "Configurations"
+
+
+def autoboots_path() -> Path:
+    """Where the WHDLoad Booter caches per-game auto-generated configs."""
+    return whdboot_path() / "save-data" / "Autoboots"
+
+
+def game_config_names(source: Path) -> list[str]:
+    """Config file names the WHDLoad Booter would derive from a game archive.
+
+    RetroPlay ``.lha`` names map 1:1 to the booter's ``<stem>.uae`` config.
+    """
+    stem = Path(source).stem
+    return [f"{stem}.uae"]
+
+
+def clear_game_config(source: Path) -> list[Path]:
+    """Delete the booter's cached config(s) for a game so it regenerates fresh.
+
+    Prevents a stale (e.g. 68000) auto-config from being reused after the ROM or
+    settings change. Returns the paths that were removed.
+    """
+    removed: list[Path] = []
+    dirs = [config_path(), autoboots_path()]
+    for name in game_config_names(source):
+        for directory in dirs:
+            target = directory / name
+            try:
+                if target.exists():
+                    target.unlink()
+                    removed.append(target)
+            except OSError:
+                pass
+    return removed
+
+
 def build_command(config_path: Path, amiberry: str | None = None) -> list[str]:
     exe = amiberry or find_amiberry()
     if exe is None:
@@ -90,6 +131,23 @@ def _exe_or_raise(amiberry: str | None) -> str:
     return exe
 
 
+def resolve_game_source(source: Path) -> Path:
+    """Resolve the actual file Amiberry should open for a game.
+
+    A WHDLoad *folder* is resolved to a single ``.lha``/``.lzx`` inside it.
+    """
+    source = Path(source)
+    if source.is_dir():
+        archives = sorted(source.rglob("*.lha")) or sorted(source.rglob("*.lzx"))
+        if archives:
+            return archives[0]
+        raise FileNotFoundError(
+            f"'{source.name}' is a folder with no .lha inside. For click-to-play, "
+            "use a WHDLoad .lha pack (e.g. a RetroPlay archive) or an .adf disk image."
+        )
+    return source
+
+
 def build_game_command(
     source: Path, kind: str | None = None, amiberry: str | None = None, rescan: bool = True
 ) -> list[str]:
@@ -97,21 +155,10 @@ def build_game_command(
 
     * WHDLoad archives (``.lha`` etc.) use the WHDLoad Booter (``--autoload``).
     * Disk/CD images are passed directly so Amiberry auto-detects and boots them.
-    * A WHDLoad *folder* is resolved to a single ``.lha`` inside it if present.
     """
     exe = _exe_or_raise(amiberry)
-    source = Path(source)
+    source = resolve_game_source(source)
     suffix = source.suffix.lower()
-
-    if source.is_dir():
-        archives = sorted(source.rglob("*.lha")) or sorted(source.rglob("*.lzx"))
-        if len(archives) >= 1:
-            source, suffix = archives[0], archives[0].suffix.lower()
-        else:
-            raise FileNotFoundError(
-                f"'{source.name}' is a folder with no .lha inside. For click-to-play, "
-                "use a WHDLoad .lha pack (e.g. a RetroPlay archive) or an .adf disk image."
-            )
 
     cmd = [exe]
     if rescan:
@@ -152,7 +199,16 @@ def launch_game(
     amiberry: str | None = None,
     wait: bool = True,
     rescan: bool = True,
+    fresh: bool = True,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.Popen | subprocess.CompletedProcess:
-    """Boot an actual game (WHDLoad archive or disk image) via Amiberry."""
-    return _spawn(build_game_command(source, kind, amiberry, rescan), wait, extra_env)
+    """Boot an actual game (WHDLoad archive or disk image) via Amiberry.
+
+    ``fresh=True`` first removes the WHDLoad Booter's cached config for the game
+    so it regenerates against the current ROMs/settings (avoids stale 68000
+    configs being reused).
+    """
+    resolved = resolve_game_source(source)
+    if fresh and resolved.suffix.lower() in WHDLOAD_ARCHIVES:
+        clear_game_config(resolved)
+    return _spawn(build_game_command(resolved, kind, amiberry, rescan), wait, extra_env)

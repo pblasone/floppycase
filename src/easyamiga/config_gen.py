@@ -43,6 +43,8 @@ class ConfigOptions:
     kind: str | None = None
     #: Mount the games/ directory as DH0:. Off for single-floppy game configs.
     mount_games: bool = True
+    #: Directory Amiberry should scan for ROMs (defaults to paths.roms).
+    roms_dir: Path | None = None
 
 
 def _kickstart_lines(rom: DetectedRom | None) -> list[str]:
@@ -89,7 +91,7 @@ def render_config(options: ConfigOptions) -> str:
         "active_not_captured_pause=false",
         "",
         "; --- kickstart ---",
-        f"rom_path={paths.roms}",
+        f"rom_path={options.roms_dir or paths.roms}",
         *_kickstart_lines(rom),
         "",
         "; --- chipset ---",

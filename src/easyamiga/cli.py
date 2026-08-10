@@ -22,7 +22,6 @@ from .roms import (
     crc32_of,
     default_model_key,
     detect_roms,
-    is_encoded,
     pick_rom_for_model,
 )
 
@@ -44,11 +43,16 @@ def _paths(base: Optional[str]) -> Paths:
     return Paths.resolve(base)
 
 
+def _roms_dir(paths: Paths) -> Path:
+    """Effective ROM directory (Amiberry's own folder when it is installed)."""
+    return install_mod.effective_roms_dir(paths)
+
+
 def _resolve_model(paths: Paths, explicit: Optional[str]) -> str:
     """Explicit model wins; otherwise pick the model that matches a detected ROM."""
     if explicit:
         return explicit
-    return default_model_key(detect_roms(paths.roms), DEFAULT_MODEL)
+    return default_model_key(detect_roms(_roms_dir(paths)), DEFAULT_MODEL)
 
 
 def _usable_or_warn(rom: Optional[DetectedRom]) -> Optional[DetectedRom]:
@@ -72,7 +76,7 @@ def _resolve_rom(paths: Paths, rom_path: Optional[str], model_key: str) -> Optio
             raise typer.BadParameter(f"ROM file not found: {p}")
         crc = crc32_of(p)
         return DetectedRom(path=p, crc32=crc, known=KNOWN_ROMS.get(crc))
-    detected = detect_roms(paths.roms)
+    detected = detect_roms(_roms_dir(paths))
     return pick_rom_for_model(detected, model_key)
 
 
@@ -94,20 +98,27 @@ def init(base: Optional[str] = BaseOption) -> None:
         except Exception:
             pass
 
+    rdir = _roms_dir(paths)
     table = Table(title=f"easyamiga initialised at {paths.base}", show_header=True)
     table.add_column("Directory")
     table.add_column("Purpose")
-    table.add_row(str(paths.roms), "Kickstart ROMs (drop them here)")
+    table.add_row(str(rdir), "Kickstart ROMs (drop them here, with rom.key if any)")
     table.add_row(str(paths.games), "Games: WHDLoad folders / ADFs")
     table.add_row(str(paths.workbench), "Workbench / boot content")
     table.add_row(str(paths.configs), "Generated Amiberry configs")
     table.add_row(str(paths.whdload), "WHDLoad distribution")
     table.add_row(str(paths.downloads), "Download cache")
     console.print(table)
-    console.print(
-        "\nNext: [bold]easyamiga install[/bold] to install Amiberry, then "
-        "[bold]easyamiga config[/bold] to create your first machine."
-    )
+    if not amiberry.is_installed():
+        console.print(
+            "\nNext: [bold]easyamiga install[/bold] to install Amiberry, then "
+            "[bold]easyamiga config[/bold] to create your first machine."
+        )
+    else:
+        console.print(
+            f"\nDrop Kickstart ROMs into [bold]{rdir}[/bold] (Amiberry's own ROM folder), "
+            "then [bold]easyamiga gui[/bold] to play."
+        )
 
 
 @app.command()
@@ -148,7 +159,7 @@ def config(
     paths = _paths(base)
     paths.ensure()
 
-    detected = detect_roms(paths.roms)
+    detected = detect_roms(_roms_dir(paths))
     model_key = model
     if model_key is None:
         # Auto-select model from a known ROM if possible.
@@ -165,7 +176,7 @@ def config(
     chosen_rom = _usable_or_warn(_resolve_rom(paths, rom, amiga.key))
     config_name = name or amiga.key
 
-    options = ConfigOptions(model=amiga, paths=paths, rom=chosen_rom, show_gui=gui)
+    options = ConfigOptions(model=amiga, paths=paths, rom=chosen_rom, show_gui=gui, roms_dir=_roms_dir(paths))
     path = write_config(options, config_name)
 
     rom_desc = chosen_rom.description if chosen_rom else "AROS (built-in, no ROM needed)"
@@ -199,6 +210,7 @@ def add_game(
 
     result = add_game_impl(
         paths=paths,
+        roms_dir=_roms_dir(paths),
         source=Path(game),
         model=amiga,
         name=name,
@@ -261,8 +273,8 @@ def list_cmd(base: Optional[str] = BaseOption) -> None:
     """List detected ROMs, generated configs, and stored games."""
     paths = _paths(base)
 
-    roms = detect_roms(paths.roms)
-    rom_table = Table(title="Kickstart ROMs")
+    roms = detect_roms(_roms_dir(paths))
+    rom_table = Table(title=f"Kickstart ROMs in {_roms_dir(paths)}")
     rom_table.add_column("File")
     rom_table.add_column("CRC32")
     rom_table.add_column("Identified as")
@@ -293,7 +305,7 @@ def scan(
     paths = _paths(base)
     amiga = get_model(_resolve_model(paths, model))
     rom = _usable_or_warn(_resolve_rom(paths, None, amiga.key))
-    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher)
+    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher, roms_dir=_roms_dir(paths))
     added = sum(1 for g in games if g.newly_created)
 
     table = Table(title=f"Scanned {paths.games}")
@@ -320,15 +332,54 @@ def sync_roms(base: Optional[str] = BaseOption) -> None:
         console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
         raise typer.Exit(1)
     n = install_mod.sync_kickstarts(paths, log=console.print)
-    roms = detect_roms(paths.roms)
+    roms = detect_roms(_roms_dir(paths))
     usable_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
-    console.print(f"Synced [bold]{n}[/bold] ROM(s) into {amiberry.rom_path()}.")
+    console.print(f"[bold]{n}[/bold] usable ROM(s) in {_roms_dir(paths)}.")
     if usable_a1200:
         console.print("[green]A1200 Kickstart 3.1 is available - WHDLoad auto-boot should work.[/green]")
     console.print(
         "Launch a game with [bold]easyamiga run <name>[/bold] or the GUI "
         "(they rescan Amiberry's ROMs automatically)."
     )
+
+
+@app.command("clean-configs")
+def clean_configs(
+    name: Optional[str] = typer.Argument(None, help="Game name to reset (default: all WHDLoad auto-boot caches)."),
+    base: Optional[str] = BaseOption,
+) -> None:
+    """Remove Amiberry's cached auto-generated game configs so they regenerate fresh.
+
+    Useful if a game got a bad auto-config (e.g. stuck at 68000) before your ROMs
+    were set up correctly.
+    """
+    paths = _paths(base)
+    if not amiberry.is_installed():
+        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        raise typer.Exit(1)
+
+    removed: list[Path] = []
+    if name:
+        cfg = paths.config_file(name)
+        src = read_meta(cfg).get("source") if cfg.exists() else None
+        target = Path(src) if src else Path(name)
+        removed = amiberry.clear_game_config(target)
+    else:
+        autoboots = amiberry.autoboots_path()
+        if autoboots.exists():
+            for f in sorted(autoboots.glob("*.uae")):
+                try:
+                    f.unlink()
+                    removed.append(f)
+                except OSError:
+                    pass
+
+    if removed:
+        console.print(f"Removed {len(removed)} cached config(s):")
+        for r in removed:
+            console.print(f"  {r}")
+    else:
+        console.print("No cached game configs to remove.")
 
 
 @app.command()
@@ -355,29 +406,21 @@ def doctor(base: Optional[str] = BaseOption) -> None:
     table.add_column("Result")
 
     exe = amiberry.find_amiberry()
+    rdir = _roms_dir(paths)
     table.add_row("Amiberry", f"[green]{exe}[/green]" if exe else "[red]not installed[/red]")
     table.add_row("Base directory", f"{paths.base} {'[green](exists)[/green]' if paths.base.exists() else '[yellow](missing - run init)[/yellow]'}")
-    roms = detect_roms(paths.roms) if paths.roms.exists() else []
+    roms = detect_roms(rdir) if rdir.exists() else []
     known = [r for r in roms if r.known]
     encrypted = [r for r in roms if r.encoded and not r.has_key]
+    table.add_row("ROM folder", str(rdir))
     table.add_row("ROMs", f"{len(roms)} found, {len(known)} identified" if roms else "none (AROS fallback)")
     if encrypted:
         table.add_row(
             "Encrypted ROMs",
-            f"[yellow]{len(encrypted)} need rom.key (copy it into {paths.roms})[/yellow]",
+            f"[yellow]{len(encrypted)} need rom.key (copy it into {rdir})[/yellow]",
         )
 
     if exe:
-        arom = amiberry.rom_path()
-        arom_files = [p for p in arom.glob("*") if p.is_file() or p.is_symlink()] if arom.exists() else []
-        table.add_row("Amiberry ROM path", f"{arom} ({len(arom_files)} file(s))")
-        stale = [p for p in arom_files if is_encoded(p)]
-        if stale:
-            table.add_row(
-                "Stale encrypted copy",
-                f"[yellow]{len(stale)} still encrypted in Amiberry's ROMs - run "
-                "'easyamiga sync-roms'[/yellow]",
-            )
         has_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
         table.add_row(
             "WHDLoad Kickstart",

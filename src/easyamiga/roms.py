@@ -24,9 +24,19 @@ AROS = ":AROS"
 #: Header on Cloanto/Amiga Forever encoded ROMs.
 AMIROMTYPE1 = b"AMIROMTYPE1"
 #: Where easyamiga writes decoded copies of encoded ROMs (inside the ROM dir).
-DECODED_DIRNAME = ".easyamiga-decoded"
+#: Deliberately NOT hidden so Amiberry's recursive ROM scan picks it up too.
+DECODED_DIRNAME = "easyamiga-decoded"
 #: Common names for the Amiga Forever decode key.
 ROM_KEY_NAMES = {"rom.key"}
+#: Files/dirs to ignore when scanning (Amiberry's own AROS + MT32 assets).
+IGNORED_ROM_NAMES = {"aros-rom.bin", "aros-ext.bin"}
+IGNORED_DIRNAMES = {DECODED_DIRNAME, "mt32-roms"}
+
+
+def _skip(path: Path) -> bool:
+    if any(part in IGNORED_DIRNAMES for part in path.parts):
+        return True
+    return path.name in IGNORED_ROM_NAMES
 
 
 @dataclass(frozen=True)
@@ -125,6 +135,9 @@ def find_rom_key(roms_dir: Path) -> Path | None:
     return None
 
 
+# (helpers _skip / ignore sets defined above are used by the scanners below)
+
+
 def decode_encoded_bytes(encoded: bytes, key: bytes) -> bytes:
     """Decode Cloanto AMIROMTYPE1 payload (header already stripped) with a key.
 
@@ -157,7 +170,7 @@ def prepare_decoded(roms_dir: Path) -> dict[str, Path]:
     cache = roms_dir / DECODED_DIRNAME
     produced: dict[str, Path] = {}
     for rom in sorted(roms_dir.rglob("*")):
-        if DECODED_DIRNAME in rom.parts:
+        if _skip(rom):
             continue
         if not _looks_like_rom(rom) or not is_encoded(rom):
             continue
@@ -184,7 +197,7 @@ def detect_roms(roms_dir: Path) -> list[DetectedRom]:
     decoded = prepare_decoded(roms_dir)
     detected: list[DetectedRom] = []
     for path in sorted(roms_dir.rglob("*")):
-        if DECODED_DIRNAME in path.parts:
+        if _skip(path):
             continue
         if not _looks_like_rom(path):
             continue

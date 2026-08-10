@@ -65,6 +65,7 @@ class EasyAmigaGUI:
         self.ttk = ttk
         self.paths = Paths.resolve(base)
         self.paths.ensure()
+        self.roms_dir = install_mod.effective_roms_dir(self.paths)
         self._cards: list[tk.Widget] = []
         self._columns = 3
 
@@ -107,7 +108,7 @@ class EasyAmigaGUI:
 
         tk.Label(bar, text="Machine:", bg=BG, fg=MUTED,
                  font=("Sans", 10)).pack(side="left")
-        default_model = default_model_key(detect_roms(self.paths.roms), DEFAULT_MODEL)
+        default_model = default_model_key(detect_roms(self.roms_dir), DEFAULT_MODEL)
         self.model_var = tk.StringVar(value=default_model)
         model_menu = tk.OptionMenu(bar, self.model_var, *MODELS.keys())
         model_menu.configure(bg=CARD, fg=TEXT, activebackground=CARD_HOVER,
@@ -179,14 +180,14 @@ class EasyAmigaGUI:
 
     # --- behaviour ---------------------------------------------------------
     def _current_rom(self, model_key: str) -> Optional[DetectedRom]:
-        return pick_rom_for_model(detect_roms(self.paths.roms), model_key)
+        return pick_rom_for_model(detect_roms(self.roms_dir), model_key)
 
     def do_scan(self, announce: bool = True) -> None:
         from tkinter import messagebox
 
         model = get_model(self.model_var.get())
         rom = self._current_rom(model.key)
-        games = scan_games(self.paths, model, rom=rom)
+        games = scan_games(self.paths, model, rom=rom, roms_dir=self.roms_dir)
         added = sum(1 for g in games if g.newly_created)
         self.refresh()
         if announce:
@@ -220,7 +221,7 @@ class EasyAmigaGUI:
         model = get_model(self.model_var.get())
         rom = self._current_rom(model.key)
         try:
-            game = add_game(self.paths, source, model, rom=rom)
+            game = add_game(self.paths, source, model, rom=rom, roms_dir=self.roms_dir)
         except Exception as exc:
             messagebox.showerror("Could not add game", str(exc))
             return

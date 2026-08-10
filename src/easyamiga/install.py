@@ -18,7 +18,7 @@ import requests
 
 from . import amiberry, desktop
 from .paths import Paths
-from .roms import detect_roms, find_rom_key
+from .roms import detect_roms
 
 WHDLOAD_URL = "https://whdload.de/whdload/WHDLoad_usr.lha"
 
@@ -173,65 +173,86 @@ def install_app_launcher(log=print) -> Path:
 
 
 # --- Kickstart / WHDLoad booter wiring -----------------------------------------
-def _place(src: Path, dest: Path) -> None:
-    """Symlink src -> dest, falling back to a copy where symlinks aren't allowed."""
-    if dest.is_symlink() or dest.exists():
+def _looks_like_rom(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    size = path.stat().st_size
+    return 128 * 1024 <= size <= 4 * 1024 * 1024
+
+
+def effective_roms_dir(paths: Paths) -> Path:
+    """The directory easyamiga uses for Kickstart ROMs.
+
+    When Amiberry is installed we use *its* ROM folder directly (single source
+    of truth, no copying), otherwise the local ``~/EasyAmiga/roms`` fallback.
+    """
+    if amiberry.is_installed():
+        return amiberry.rom_path()
+    return paths.roms
+
+
+def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
+    """Copy ROMs/rom.key from the legacy ``~/EasyAmiga/roms`` into ``dest``.
+
+    Only copies files that aren't already present (by name); never deletes.
+    """
+    legacy = paths.roms
+    if not legacy.exists() or legacy.resolve() == dest.resolve():
+        return 0
+    dest.mkdir(parents=True, exist_ok=True)
+    moved = 0
+    for src in sorted(legacy.iterdir()):
+        if src.name == ".easyamiga-decoded" or src.name == "easyamiga-decoded":
+            continue
+        if not (src.is_file() and (_looks_like_rom(src) or src.name.lower() == "rom.key")):
+            continue
+        target = dest / src.name
+        if target.exists():
+            continue
         try:
-            if dest.resolve() == src.resolve():
-                return
-        except OSError:
-            pass
-        dest.unlink()
-    try:
-        dest.symlink_to(src)
-    except OSError:
-        shutil.copy2(src, dest)
+            shutil.copy2(src, target)
+            moved += 1
+        except OSError as exc:
+            log(f"Could not copy {src.name} into {dest}: {exc}")
+    if moved:
+        log(f"Migrated {moved} ROM file(s) from {legacy} into {dest}")
+    return moved
 
 
 def sync_kickstarts(paths: Paths, log=print) -> int:
-    """Make the user's Kickstart ROMs visible to Amiberry's WHDLoad Booter.
+    """Ensure Kickstart ROMs are present and usable in Amiberry's ROM folder.
 
-    Encoded Amiga Forever ROMs are decoded first (via ``rom.key``); the decoded
-    copies (or plain ROMs) are linked into Amiberry's ROM path so its ROM scan
-    and WHDLoad Booter recognise them by CRC. Returns the number made available.
+    Migrates any legacy easyamiga ROMs into Amiberry's folder, then decodes
+    encoded Amiga Forever ROMs in place (into an ``easyamiga-decoded`` subfolder
+    that Amiberry's recursive scan also reads). Returns the count of usable ROMs.
     """
-    if not amiberry.is_installed() or not paths.roms.exists():
+    if not amiberry.is_installed():
         return 0
-    target_dir = amiberry.rom_path()
+    dest = effective_roms_dir(paths)
     try:
-        target_dir.mkdir(parents=True, exist_ok=True)
+        dest.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        log(f"Could not prepare Amiberry ROM path {target_dir}: {exc}")
+        log(f"Could not prepare ROM folder {dest}: {exc}")
         return 0
 
-    count = 0
+    migrate_legacy_roms(paths, dest, log=log)
+
+    usable = 0
     encrypted_unusable = 0
-    for rom in detect_roms(paths.roms):
-        if not rom.usable:
+    for rom in detect_roms(dest):  # decodes encoded ROMs in place as a side effect
+        if rom.usable:
+            usable += 1
+        elif rom.encoded:
             encrypted_unusable += 1
-            continue
-        # rom.path already points at the decoded copy for encoded ROMs.
-        try:
-            _place(rom.path, target_dir / rom.path.name)
-            count += 1
-        except OSError as exc:
-            log(f"Could not link ROM {rom.path.name}: {exc}")
 
-    key = find_rom_key(paths.roms)
-    if key is not None:
-        try:
-            _place(key, target_dir / "rom.key")
-        except OSError:
-            pass
-
-    if count:
-        log(f"Made {count} Kickstart ROM(s) available to Amiberry at {target_dir}")
+    if usable:
+        log(f"{usable} usable Kickstart ROM(s) in {dest}")
     if encrypted_unusable:
         log(
             f"{encrypted_unusable} ROM(s) are encrypted (Amiga Forever) with no rom.key - "
-            "add rom.key to your roms folder, or decode them by running Amiga Forever once."
+            f"add rom.key next to them in {dest}, or run Amiga Forever once to decrypt."
         )
-    return count
+    return usable
 
 
 def ensure_whdboot(log=print) -> bool:
