@@ -16,8 +16,8 @@ def test_a500_aros_config(tmp_path):
     assert "chipmem_size=1" in text
     # No ROM -> built-in AROS
     assert "kickstart_rom_file=:AROS" in text
-    # Games directory mounted read/write
-    assert f"uaehf0=dir,rw,DH0:Games:{paths.games},-10" in text
+    # Games directory mounted read/write (never auto-boots)
+    assert f"uaehf0=dir,rw,DH0:Games:{paths.games},-128" in text
     # Boots straight into emulation by default
     assert "use_gui=no" in text
     # Keep running when the window loses focus (better for click-to-play)

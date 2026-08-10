@@ -23,9 +23,10 @@ gives every game a clickable desktop icon.
   correct chipset/CPU and the **maximum recommended Fast RAM** (8 MB). If no ROM
   is present it falls back to the built-in **AROS** Kickstart replacement, so you
   can boot an Amiga with zero copyrighted files.
-- **WHDLoad-ready games folder** – your host `games/` directory is mounted
-  read/write inside the Amiga as `DH0:` / `Games:`, so WHDLoad games dropped
-  there appear on the Amiga desktop.
+- **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game
+  via Amiberry's WHDLoad Booter (no manual Workbench setup); ADF disk images
+  boot the floppy directly. easyamiga makes your Kickstart ROMs visible to the
+  booter automatically.
 - **Clickable game icons** – `easyamiga add-game` creates a freedesktop
   `.desktop` launcher so a game is one click away from your Linux application
   menu.
@@ -76,9 +77,12 @@ easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
 | `easyamiga config` | Generate an Amiberry config (auto-detects ROM/model). |
 | `easyamiga scan` | Scan the games folder and register every game found. |
 | `easyamiga add-game <path>` | Store a game, build its config, add a desktop icon. |
-| `easyamiga run <name>` | Launch Amiberry with a generated config. |
+| `easyamiga run <name>` | Boot the game (WHDLoad auto-boot for `.lha`, floppy for ADF). |
 | `easyamiga list` | List detected ROMs and generated configs. |
 | `easyamiga doctor` | Report what is installed / configured / missing. |
+
+The model for new games is auto-detected from your ROM (a KS 3.1 A1200 ROM →
+A1200); pass `--model` to override.
 
 Use `--base <dir>` (or the `EASYAMIGA_HOME` env var) to manage a setup somewhere
 other than `~/EasyAmiga`.
@@ -106,9 +110,19 @@ distributed with easyamiga. The legal way to obtain them is
 For a fully free setup, easyamiga uses the open-source
 [AROS](https://aros.org/) Kickstart replacement that ships with Amiberry.
 
-Fully-automatic WHDLoad *auto-booting* (Amiberry's WHDLoad booter) additionally
-requires the specific Kickstart 1.3 and 3.1 ROMs; without them you can still
-mount `games/` inside a booted Workbench/AROS and launch WHDLoad manually.
+### How games are launched
+
+- **WHDLoad `.lha` games** boot via Amiberry's WHDLoad Booter (`amiberry
+  --autoload game.lha`). Amiberry builds a temporary hard drive, installs the
+  game and starts it — no Workbench setup needed. This needs a **Kickstart 3.1
+  (A1200)** ROM (and ideally 1.3) available to Amiberry; easyamiga symlinks the
+  ROMs from `~/EasyAmiga/roms/` into Amiberry's ROM path for you. Use RetroPlay
+  `.lha` packs (one top-level folder containing the `.slave`) for best results.
+- **ADF disk images** boot the floppy directly using a generated config with
+  the auto-detected model and your Kickstart.
+
+Run `easyamiga doctor` to confirm the WHDLoad Booter is ready and that a
+suitable Kickstart is visible to Amiberry.
 
 ## Development
 
