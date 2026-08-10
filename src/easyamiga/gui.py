@@ -14,11 +14,12 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from . import amiberry
+from . import amiberry, install as install_mod
+from .config_gen import read_meta
 from .games import add_game, discover_game_sources, list_configs, scan_games
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
-from .roms import DetectedRom, detect_roms, pick_rom_for_model
+from .roms import DetectedRom, default_model_key, detect_roms, pick_rom_for_model
 
 # Palette (Amiga-ish dark blue with a boing-ball red accent)
 BG = "#0f172a"
@@ -106,7 +107,8 @@ class EasyAmigaGUI:
 
         tk.Label(bar, text="Machine:", bg=BG, fg=MUTED,
                  font=("Sans", 10)).pack(side="left")
-        self.model_var = tk.StringVar(value=DEFAULT_MODEL)
+        default_model = default_model_key(detect_roms(self.paths.roms), DEFAULT_MODEL)
+        self.model_var = tk.StringVar(value=default_model)
         model_menu = tk.OptionMenu(bar, self.model_var, *MODELS.keys())
         model_menu.configure(bg=CARD, fg=TEXT, activebackground=CARD_HOVER,
                              activeforeground=TEXT, highlightthickness=0,
@@ -234,10 +236,26 @@ class EasyAmigaGUI:
     def play(self, config_path: Path) -> None:
         from tkinter import messagebox
 
+        if not amiberry.is_installed():
+            messagebox.showerror(
+                "Amiberry not found",
+                "Amiberry is not installed. Run 'easyamiga install' in a terminal first.",
+            )
+            return
+
+        meta = read_meta(config_path)
+        source = meta.get("source")
+        kind = meta.get("kind") or None
         try:
-            amiberry.launch(config_path, wait=False)
+            if kind == "whdload" and source and Path(source).exists():
+                # WHDLoad game: boot via Amiberry's WHDLoad Booter (--autoload).
+                install_mod.sync_kickstarts(self.paths, log=lambda *_: None)
+                amiberry.launch_game(Path(source), kind, wait=False)
+            else:
+                # ADF game (boots the floppy) or a bare machine: use the config.
+                amiberry.launch(config_path, wait=False)
         except FileNotFoundError as exc:
-            messagebox.showerror("Amiberry not found", str(exc))
+            messagebox.showerror("Could not launch game", str(exc))
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:

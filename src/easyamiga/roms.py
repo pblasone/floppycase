@@ -82,6 +82,16 @@ def detect_roms(roms_dir: Path) -> list[DetectedRom]:
     return detected
 
 
+def default_model_key(detected: list[DetectedRom], fallback: str = "a500") -> str:
+    """Best model to default to given the detected ROMs.
+
+    If a known Kickstart is present, use the model it suits (e.g. a KS 3.1 A1200
+    ROM -> ``a1200``) so the generated config matches the ROM's CPU requirement.
+    """
+    known = next((d for d in detected if d.known), None)
+    return known.known.model if known else fallback
+
+
 def pick_rom_for_model(detected: list[DetectedRom], model_key: str) -> DetectedRom | None:
     """Choose the best ROM for a model: prefer a known ROM for that exact model,
     then any known ROM, then any ROM at all."""

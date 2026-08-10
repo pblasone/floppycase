@@ -171,6 +171,69 @@ def install_app_launcher(log=print) -> Path:
     return target
 
 
+# --- Kickstart / WHDLoad booter wiring -----------------------------------------
+def _looks_like_rom(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    size = path.stat().st_size
+    return 128 * 1024 <= size <= 4 * 1024 * 1024
+
+
+def sync_kickstarts(paths: Paths, log=print) -> int:
+    """Make the user's Kickstart ROMs visible to Amiberry's WHDLoad Booter.
+
+    Amiberry scans its own ROM path (e.g. ``~/Amiberry/ROMs``) and symlinks
+    recognised Kickstarts into the WHDLoad Booter's ``Kickstarts`` folder. Our
+    ROMs live under ``~/EasyAmiga/roms``, so we symlink them across. Returns the
+    number of ROMs made available.
+    """
+    if not amiberry.is_installed() or not paths.roms.exists():
+        return 0
+    target_dir = amiberry.rom_path()
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log(f"Could not prepare Amiberry ROM path {target_dir}: {exc}")
+        return 0
+
+    count = 0
+    for rom in sorted(paths.roms.rglob("*")):
+        if not _looks_like_rom(rom):
+            continue
+        link = target_dir / rom.name
+        try:
+            if link.is_symlink() or link.exists():
+                if link.resolve() == rom.resolve():
+                    count += 1
+                    continue
+                link.unlink()
+            link.symlink_to(rom)
+            count += 1
+        except OSError:
+            # Fall back to copying if symlinks aren't permitted.
+            try:
+                shutil.copy2(rom, link)
+                count += 1
+            except OSError as exc:
+                log(f"Could not link ROM {rom.name}: {exc}")
+    if count:
+        log(f"Made {count} Kickstart ROM(s) available to Amiberry at {target_dir}")
+    return count
+
+
+def ensure_whdboot(log=print) -> bool:
+    """Ensure Amiberry's WHDLoad Booter assets exist (download if missing)."""
+    if not amiberry.is_installed():
+        return False
+    booter = amiberry.whdboot_path() / "WHDLoad"
+    if booter.exists():
+        return True
+    exe = amiberry.find_amiberry()
+    log("Fetching Amiberry WHDLoad Booter assets...")
+    result = _run([exe, "--download-whdboot"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return result.returncode == 0
+
+
 # --- Orchestration -------------------------------------------------------------
 def install_all(paths: Paths, log=print, with_whdload: bool = True) -> dict[str, bool]:
     """Run the full install routine. Returns a summary of what succeeded."""
@@ -198,5 +261,18 @@ def install_all(paths: Paths, log=print, with_whdload: bool = True) -> dict[str,
 
     if with_whdload:
         summary["whdload"] = install_whdload(paths, log=log)
+
+    if summary.get("amiberry"):
+        try:
+            summary["whdboot"] = ensure_whdboot(log=log)
+        except Exception as exc:
+            log(f"WHDLoad Booter setup skipped: {exc}")
+            summary["whdboot"] = False
+        try:
+            sync_kickstarts(paths, log=log)
+            summary["kickstarts_linked"] = True
+        except Exception as exc:
+            log(f"Kickstart sync skipped: {exc}")
+            summary["kickstarts_linked"] = False
 
     return summary

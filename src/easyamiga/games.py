@@ -86,6 +86,10 @@ def add_game(
         floppy=floppy,
         show_gui=False,
         description=f"easyamiga: {game_name} ({model.name})",
+        source=stored,
+        kind=kind,
+        # ADF games boot the floppy directly; no games-HD mount needed.
+        mount_games=(kind != "adf"),
     )
     config_path = write_config(options, game_name)
 

@@ -11,11 +11,19 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__, amiberry, install as install_mod
-from .config_gen import ConfigOptions, write_config
+from .config_gen import ConfigOptions, read_meta, write_config
 from .games import add_game as add_game_impl, list_configs, scan_games
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
-from .roms import AROS, DetectedRom, crc32_of, detect_roms, pick_rom_for_model, KNOWN_ROMS
+from .roms import (
+    AROS,
+    DetectedRom,
+    KNOWN_ROMS,
+    crc32_of,
+    default_model_key,
+    detect_roms,
+    pick_rom_for_model,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -33,6 +41,13 @@ BaseOption = typer.Option(
 
 def _paths(base: Optional[str]) -> Paths:
     return Paths.resolve(base)
+
+
+def _resolve_model(paths: Paths, explicit: Optional[str]) -> str:
+    """Explicit model wins; otherwise pick the model that matches a detected ROM."""
+    if explicit:
+        return explicit
+    return default_model_key(detect_roms(paths.roms), DEFAULT_MODEL)
 
 
 def _resolve_rom(paths: Paths, rom_path: Optional[str], model_key: str) -> Optional[DetectedRom]:
@@ -157,7 +172,7 @@ def config(
 def add_game(
     game: str = typer.Argument(..., help="Path to an ADF, WHDLoad folder, or archive."),
     base: Optional[str] = BaseOption,
-    model: str = typer.Option(DEFAULT_MODEL, "--model", "-m", help=f"Amiga model ({', '.join(MODELS)})."),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help=f"Amiga model ({', '.join(MODELS)}). Auto-detected from ROM if omitted."),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Display name for the game."),
     rom: Optional[str] = typer.Option(None, "--rom", help="Kickstart ROM path (else auto-detect / AROS)."),
     launcher: bool = typer.Option(True, help="Create a desktop launcher icon."),
@@ -165,7 +180,7 @@ def add_game(
     """Add a game: store it, build a config, and create a clickable desktop icon."""
     paths = _paths(base)
     paths.ensure()
-    amiga = get_model(model)
+    amiga = get_model(_resolve_model(paths, model))
     chosen_rom = _resolve_rom(paths, rom, amiga.key)
 
     result = add_game_impl(
@@ -208,8 +223,23 @@ def run(
     if not amiberry.is_installed():
         console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
         raise typer.Exit(1)
-    console.print(f"Launching Amiberry: {config_path}")
-    amiberry.launch(config_path, wait=True)
+
+    meta = read_meta(config_path)
+    source = meta.get("source")
+    kind = meta.get("kind") or None
+    if kind == "whdload" and source and Path(source).exists():
+        # WHDLoad game: boot it via Amiberry's WHDLoad Booter (--autoload).
+        install_mod.sync_kickstarts(paths, log=lambda *_: None)
+        console.print(f"Launching game: {Path(source).name}")
+        try:
+            amiberry.launch_game(Path(source), kind, wait=True)
+        except FileNotFoundError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1)
+    else:
+        # ADF game (boots the floppy) or a bare machine: use the generated config.
+        console.print(f"Launching Amiberry: {config_path}")
+        amiberry.launch(config_path, wait=True)
 
 
 @app.command("list")
@@ -242,12 +272,12 @@ def list_cmd(base: Optional[str] = BaseOption) -> None:
 @app.command()
 def scan(
     base: Optional[str] = BaseOption,
-    model: str = typer.Option(DEFAULT_MODEL, "--model", "-m", help=f"Model for newly found games ({', '.join(MODELS)})."),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help=f"Model for newly found games ({', '.join(MODELS)}). Auto-detected from ROM if omitted."),
     launcher: bool = typer.Option(True, help="Create desktop launchers for new games."),
 ) -> None:
     """Scan the games folder and register every game found."""
     paths = _paths(base)
-    amiga = get_model(model)
+    amiga = get_model(_resolve_model(paths, model))
     rom = _resolve_rom(paths, None, amiga.key)
     games = scan_games(paths, amiga, rom=rom, create_launchers=launcher)
     added = sum(1 for g in games if g.newly_created)
@@ -293,6 +323,19 @@ def doctor(base: Optional[str] = BaseOption) -> None:
     roms = detect_roms(paths.roms) if paths.roms.exists() else []
     known = [r for r in roms if r.known]
     table.add_row("ROMs", f"{len(roms)} found, {len(known)} identified" if roms else "none (AROS fallback)")
+
+    if exe:
+        arom = amiberry.rom_path()
+        linked = len([p for p in arom.glob("*") if p.is_file() or p.is_symlink()]) if arom.exists() else 0
+        table.add_row("Amiberry ROM path", f"{arom} ({linked} file(s))")
+        has_a1200 = any(r.known and r.known.model == "a1200" for r in roms)
+        table.add_row(
+            "WHDLoad Kickstart",
+            "[green]A1200 KS 3.1 present[/green]" if has_a1200
+            else "[yellow]no A1200 KS 3.1 - WHDLoad games may not boot[/yellow]",
+        )
+        booter = amiberry.whdboot_path() / "WHDLoad"
+        table.add_row("WHDLoad Booter", "[green]ready[/green]" if booter.exists() else "[yellow]missing (run install)[/yellow]")
     table.add_row("Configs", str(len(list_configs(paths))))
     console.print(table)
 
