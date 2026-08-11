@@ -103,6 +103,35 @@ def effective(paths: Paths, key: str) -> dict:
     return eff
 
 
+def field_inherited(game: dict, field: str) -> bool:
+    """True when a per-game field defers to global defaults."""
+    return game.get(field) in (None, "", "default")
+
+
+def fullscreen_inherited(game: dict) -> bool:
+    return game.get("fullscreen_choice", "default") in (None, "", "default")
+
+
+def display_value(game: dict, defaults: dict, field: str) -> str:
+    """UI value for a setting: global default when inherited, else the override."""
+    if field == "fullscreen":
+        if fullscreen_inherited(game):
+            return "on" if defaults.get("fullscreen") else "off"
+        return "on" if game.get("fullscreen") is True else "off"
+    if field_inherited(game, field):
+        val = defaults.get(field, DEFAULT_SETTINGS.get(field, ""))
+        return str(val)
+    return str(game.get(field, ""))
+
+
+def store_if_matches_global(current: str, defaults: dict, field: str) -> str:
+    """Store ``default`` when ``current`` matches the global default value."""
+    global_val = defaults.get(field, DEFAULT_SETTINGS.get(field, ""))
+    if str(current).strip() == str(global_val).strip():
+        return "default"
+    return current.strip() if isinstance(current, str) else str(current)
+
+
 # --- display names -------------------------------------------------------------
 def prettify(stem: str) -> str:
     """Turn a RetroPlay-style filename stem into a friendlier title.

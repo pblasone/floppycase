@@ -1,8 +1,8 @@
 """A simple, friendly desktop GUI for easyamiga.
 
-The window scans the games folder and shows each game in an alphabetical list.
-Built with Tkinter so it has no extra Python dependencies (it only needs the
-system ``python3-tk`` package, which ``easyamiga install`` sets up).
+Built with **Tkinter** plus **ttkbootstrap** for a coherent dark theme. The window
+scans the games folder and shows each game in an alphabetical list. System
+``python3-tk`` is still required (``easyamiga install`` installs it).
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ ACCENT = "#ff2d2d"
 ACCENT_DK = "#b30000"
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
+INHERITED = "#64748b"  # weaker than MUTED for inherited per-game values
 
 ROW_H = 52
 
@@ -68,21 +69,27 @@ def _label_for(config_path: Path) -> str:
 class EasyAmigaGUI:
     def __init__(self, base: Optional[str] = None) -> None:
         import tkinter as tk
-        from tkinter import ttk
+        from ttkbootstrap import Window, ttk
+        from ttkbootstrap.constants import DANGER, SECONDARY
 
         self.tk = tk
         self.ttk = ttk
+        self._bootstyle_danger = DANGER
+        self._bootstyle_secondary = SECONDARY
         self.paths = Paths.resolve(base)
         self.paths.ensure()
         self.roms_dir = install_mod.effective_roms_dir(self.paths)
         self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
         self._rows: list[tk.Widget] = []
 
-        self.root = tk.Tk()
-        self.root.title("easyamiga")
-        self.root.geometry("900x620")
-        self.root.minsize(560, 420)
+        self.root = Window(
+            title="easyamiga",
+            themename="darkly",
+            size=(900, 620),
+            minsize=(560, 420),
+        )
         self.root.configure(bg=BG)
+        self._setup_styles()
 
         self._build_header()
         self._build_toolbar()
@@ -92,6 +99,13 @@ class EasyAmigaGUI:
         # Auto-scan on open so games appear with zero effort.
         self.do_scan(announce=False)
         self._update_amiberry_banner()
+
+    def _setup_styles(self) -> None:
+        style = self.root.style
+        style.configure("Inherited.TCombobox", foreground=INHERITED)
+        style.configure("Override.TCombobox", foreground=TEXT)
+        style.configure("Inherited.TEntry", foreground=INHERITED)
+        style.configure("Override.TEntry", foreground=TEXT)
 
     # --- UI construction ---------------------------------------------------
     def _build_header(self) -> None:
@@ -125,12 +139,11 @@ class EasyAmigaGUI:
         self._toolbar_button(bar, "\u2699  Settings", self.open_default_settings)
 
     def _toolbar_button(self, parent, text, command):
-        tk = self.tk
-        btn = tk.Button(parent, text=text, command=command, bg=CARD, fg=TEXT,
-                        activebackground=CARD_HOVER, activeforeground=TEXT,
-                        relief="flat", font=("Sans", 10), padx=10, pady=6,
-                        cursor="hand2", borderwidth=0)
-        btn.pack(side="left", padx=4)
+        ttk = self.ttk
+        btn = ttk.Button(
+            parent, text=text, command=command, bootstyle=self._bootstyle_secondary,
+        )
+        btn.pack(side="left", padx=4, pady=2)
         return btn
 
     def _build_list(self) -> None:
@@ -270,51 +283,139 @@ class EasyAmigaGUI:
             messagebox.showerror("Could not launch game", str(exc))
 
     # --- settings dialogs --------------------------------------------------
-    def _dropdown(self, parent, label, var, choices, width=16):
-        tk = self.tk
-        row = tk.Frame(parent, bg=CARD)
-        row.pack(fill="x", pady=4)
-        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=12,
-                 anchor="w").pack(side="left")
-        menu = tk.OptionMenu(row, var, *choices)
-        menu.configure(bg=BG, fg=TEXT, activebackground=CARD_HOVER, activeforeground=TEXT,
-                       highlightthickness=0, relief="flat", font=("Sans", 10), width=width)
-        menu["menu"].configure(bg=BG, fg=TEXT)
-        menu.pack(side="left")
-
-    def _new_dialog(self, title, width=440, height=460):
+    def _new_dialog(self, title: str, width: int = 500, height: int = 520):
         tk = self.tk
         win = tk.Toplevel(self.root)
         win.title(title)
         win.configure(bg=CARD)
         win.geometry(f"{width}x{height}")
+        win.minsize(width, 400)
         win.transient(self.root)
         return win
 
-    def _entry_row(self, parent, label, var, width=10):
+    def _dialog_layout(self, win):
+        """Pin a footer (Save/Cancel) and return ``(main_area, footer)`` frames."""
         tk = self.tk
+        footer = tk.Frame(win, bg=CARD)
+        footer.pack(side="bottom", fill="x", padx=16, pady=12)
+        main = tk.Frame(win, bg=CARD)
+        main.pack(fill="both", expand=True)
+        return main, footer
+
+    def _scrollable_body(self, parent) -> tk.Frame:
+        """Scrollable inner frame for long settings forms."""
+        tk, ttk = self.tk, self.ttk
+        outer = tk.Frame(parent, bg=CARD)
+        outer.pack(fill="both", expand=True, padx=16, pady=(0, 4))
+
+        canvas = tk.Canvas(outer, bg=CARD, highlightthickness=0)
+        scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg=CARD)
+        body_id = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+
+        def _resize(event):
+            canvas.itemconfigure(body_id, width=event.width)
+
+        def _scroll_region(_event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        body.bind("<Configure>", _scroll_region)
+        canvas.bind("<Configure>", _resize)
+
+        def _wheel(event):
+            if getattr(event, "num", None) == 4 or getattr(event, "delta", 0) > 0:
+                canvas.yview_scroll(-1, "units")
+            elif getattr(event, "num", None) == 5 or getattr(event, "delta", 0) < 0:
+                canvas.yview_scroll(1, "units")
+
+        canvas.bind("<MouseWheel>", _wheel)
+        canvas.bind("<Button-4>", _wheel)
+        canvas.bind("<Button-5>", _wheel)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        return body
+
+    def _combobox_row(
+        self,
+        parent,
+        label: str,
+        var,
+        choices: list[str],
+        inherited: bool = False,
+        width: int = 22,
+    ):
+        tk, ttk = self.tk, self.ttk
         row = tk.Frame(parent, bg=CARD)
         row.pack(fill="x", pady=4)
         tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
                  anchor="w").pack(side="left")
-        tk.Entry(row, textvariable=var, bg=BG, fg=TEXT, insertbackground=TEXT,
-                 relief="flat", font=("Sans", 10), width=width).pack(side="left")
+        style = "Inherited.TCombobox" if inherited else "Override.TCombobox"
+        combo = ttk.Combobox(
+            row, textvariable=var, values=choices, state="readonly", width=width, style=style,
+        )
+        combo.pack(side="left", fill="x", expand=True, padx=(0, 4))
 
-    def _section_label(self, parent, text):
+        loading = True
+
+        def mark_override(*_):
+            if loading:
+                return
+            combo.configure(style="Override.TCombobox")
+
+        var.trace_add("write", mark_override)
+        combo._ea_finish_loading = finish_loading  # noqa: SLF001
+        return combo
+
+    def _entry_row(self, parent, label: str, var, inherited: bool = False, width: int = 12):
+        tk, ttk = self.tk, self.ttk
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", pady=4)
+        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
+                 anchor="w").pack(side="left")
+        style = "Inherited.TEntry" if inherited else "Override.TEntry"
+        entry = ttk.Entry(row, textvariable=var, width=width, style=style)
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        loading = True
+
+        def mark_override(*_):
+            if loading:
+                return
+            entry.configure(style="Override.TEntry")
+
+        var.trace_add("write", mark_override)
+
+        def finish_loading():
+            nonlocal loading
+            loading = False
+
+        entry._ea_finish_loading = finish_loading  # noqa: SLF001
+        return entry
+
+    def _section_label(self, parent, text: str):
         tk = self.tk
         tk.Label(parent, text=text, bg=CARD, fg=TEXT, font=("Sans", 11, "bold")).pack(
             anchor="w", pady=(10, 4))
 
+    def _finish_widget_loading(self, widgets) -> None:
+        for w in widgets:
+            finish = getattr(w, "_ea_finish_loading", None)
+            if finish:
+                finish()
+
     def open_default_settings(self) -> None:
         tk = self.tk
         d = library.get_defaults(self.paths)
-        win = self._new_dialog("Default settings (all games)", height=560)
+        win = self._new_dialog("Default settings (all games)", height=540)
         tk.Label(win, text="Default settings", bg=CARD, fg=TEXT,
                  font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(14, 2))
         tk.Label(win, text="Applied to every game unless overridden per game.",
-                 bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 8))
-        body = tk.Frame(win, bg=CARD)
-        body.pack(fill="x", padx=16)
+                 bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 4))
+
+        main, footer = self._dialog_layout(win)
+        body = self._scrollable_body(main)
 
         controls = tk.StringVar(value=d["controls"])
         scale = tk.StringVar(value=d["scale"])
@@ -327,19 +428,21 @@ class EasyAmigaGUI:
         offset_h = tk.StringVar(value=d.get("screen_offset_h", "default"))
         offset_v = tk.StringVar(value=d.get("screen_offset_v", "default"))
 
+        widgets = []
         self._section_label(body, "Display")
-        self._dropdown(body, "Fullscreen", full, ["off", "on"])
-        self._dropdown(body, "Window scale", scale, SCALE_CHOICES)
-        self._dropdown(body, "Filter", filt, FILTER_CHOICES)
-        self._dropdown(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES)
-        self._dropdown(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES)
-        self._entry_row(body, "Offset horizontal", offset_h)
-        self._entry_row(body, "Offset vertical", offset_v)
+        widgets.append(self._combobox_row(body, "Fullscreen", full, ["off", "on"]))
+        widgets.append(self._combobox_row(body, "Window scale", scale, SCALE_CHOICES))
+        widgets.append(self._combobox_row(body, "Filter", filt, FILTER_CHOICES))
+        widgets.append(self._combobox_row(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES))
+        widgets.append(self._combobox_row(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES))
+        widgets.append(self._entry_row(body, "Offset horizontal", offset_h))
+        widgets.append(self._entry_row(body, "Offset vertical", offset_v))
 
         self._section_label(body, "Input")
-        self._dropdown(body, "Controls", controls, CONTROL_CHOICES, width=22)
-        self._dropdown(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES)
-        self._dropdown(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES)
+        widgets.append(self._combobox_row(body, "Controls", controls, CONTROL_CHOICES, width=24))
+        widgets.append(self._combobox_row(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES))
+        widgets.append(self._combobox_row(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES))
+        self._finish_widget_loading(widgets)
 
         def save():
             library.set_defaults(self.paths, {
@@ -357,102 +460,140 @@ class EasyAmigaGUI:
             win.destroy()
             self.refresh()
 
-        self._dialog_buttons(win, save)
+        self._dialog_buttons(footer, save)
 
     def open_game_settings(self, config_path: Path) -> None:
         tk = self.tk
         key = config_path.stem
         g = library.get_game(self.paths, key)
+        defaults = library.get_defaults(self.paths)
         real = library.title_for(key, None, self.db_by_name)
-        win = self._new_dialog(f"Settings - {real}", height=620)
+        win = self._new_dialog(f"Settings — {real}", height=560)
 
         tk.Label(win, text=real, bg=CARD, fg=TEXT, font=("Sans", 14, "bold"),
-                 wraplength=400, justify="left").pack(anchor="w", padx=16, pady=(14, 0))
+                 wraplength=440, justify="left").pack(anchor="w", padx=16, pady=(14, 0))
         tk.Label(win, text=key, bg=CARD, fg=MUTED, font=("Sans", 8)).pack(anchor="w", padx=16)
-        body = tk.Frame(win, bg=CARD)
-        body.pack(fill="x", padx=16, pady=(8, 0))
+        tk.Label(
+            win,
+            text="Dim values follow global defaults; bright values are set for this game only.",
+            bg=CARD, fg=MUTED, font=("Sans", 9),
+        ).pack(anchor="w", padx=16, pady=(4, 0))
+
+        main, footer = self._dialog_layout(win)
+        body = self._scrollable_body(main)
 
         name_var = tk.StringVar(value=g.get("display_name", ""))
         row = tk.Frame(body, bg=CARD)
         row.pack(fill="x", pady=4)
-        tk.Label(row, text="Display name", bg=CARD, fg=MUTED, font=("Sans", 10), width=12,
+        tk.Label(row, text="Display name", bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
                  anchor="w").pack(side="left")
-        tk.Entry(row, textvariable=name_var, bg=BG, fg=TEXT, insertbackground=TEXT,
-                 relief="flat", font=("Sans", 10), width=26).pack(side="left")
+        name_entry = self.ttk.Entry(row, textvariable=name_var, width=28)
+        name_entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
 
-        # "default" defers to the global default for that setting.
-        controls = tk.StringVar(value=g.get("controls", "default"))
-        full = tk.StringVar(value=g.get("fullscreen_choice", "default"))
-        scale = tk.StringVar(value=g.get("scale", "default"))
-        filt = tk.StringVar(value=g.get("filter", "default"))
-        cd32 = tk.StringVar(value=g.get("cd32_pad", "default"))
-        stop_kp = tk.StringVar(value=g.get("stop_keypresses", "default"))
-        center_h = tk.StringVar(value=g.get("screen_center_h", "default"))
-        center_v = tk.StringVar(value=g.get("screen_center_v", "default"))
-        offset_h = tk.StringVar(value=g.get("screen_offset_h", "default"))
-        offset_v = tk.StringVar(value=g.get("screen_offset_v", "default"))
+        controls = tk.StringVar(value=library.display_value(g, defaults, "controls"))
+        full = tk.StringVar(value=library.display_value(g, defaults, "fullscreen"))
+        scale = tk.StringVar(value=library.display_value(g, defaults, "scale"))
+        filt = tk.StringVar(value=library.display_value(g, defaults, "filter"))
+        cd32 = tk.StringVar(value=library.display_value(g, defaults, "cd32_pad"))
+        stop_kp = tk.StringVar(value=library.display_value(g, defaults, "stop_keypresses"))
+        center_h = tk.StringVar(value=library.display_value(g, defaults, "screen_center_h"))
+        center_v = tk.StringVar(value=library.display_value(g, defaults, "screen_center_v"))
+        offset_h = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_h"))
+        offset_v = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_v"))
 
+        widgets = []
         self._section_label(body, "Display")
-        self._dropdown(body, "Fullscreen", full, ["default", "off", "on"])
-        self._dropdown(body, "Window scale", scale, ["default"] + SCALE_CHOICES)
-        self._dropdown(body, "Filter", filt, ["default"] + FILTER_CHOICES)
-        self._dropdown(body, "Center horizontal", center_h, ["default"] + SCREEN_CENTER_CHOICES[1:])
-        self._dropdown(body, "Center vertical", center_v, ["default"] + SCREEN_CENTER_CHOICES[1:])
-        self._entry_row(body, "Offset horizontal", offset_h)
-        self._entry_row(body, "Offset vertical", offset_v)
+        widgets.append(self._combobox_row(
+            body, "Fullscreen", full, ["off", "on"],
+            inherited=library.fullscreen_inherited(g),
+        ))
+        widgets.append(self._combobox_row(
+            body, "Window scale", scale, SCALE_CHOICES,
+            inherited=library.field_inherited(g, "scale"),
+        ))
+        widgets.append(self._combobox_row(
+            body, "Filter", filt, FILTER_CHOICES,
+            inherited=library.field_inherited(g, "filter"),
+        ))
+        widgets.append(self._combobox_row(
+            body, "Center horizontal", center_h, list(SCREEN_CENTER_CHOICES),
+            inherited=library.field_inherited(g, "screen_center_h"),
+        ))
+        widgets.append(self._combobox_row(
+            body, "Center vertical", center_v, list(SCREEN_CENTER_CHOICES),
+            inherited=library.field_inherited(g, "screen_center_v"),
+        ))
+        widgets.append(self._entry_row(
+            body, "Offset horizontal", offset_h,
+            inherited=library.field_inherited(g, "screen_offset_h"),
+        ))
+        widgets.append(self._entry_row(
+            body, "Offset vertical", offset_v,
+            inherited=library.field_inherited(g, "screen_offset_v"),
+        ))
 
         self._section_label(body, "Input")
-        self._dropdown(body, "Controls", controls, ["default"] + CONTROL_CHOICES, width=22)
-        self._dropdown(body, "CD32 pad mode", cd32, ["default"] + CD32_PAD_CHOICES[1:])
-        self._dropdown(body, "Block key dupes", stop_kp, ["default"] + STOP_KEYPRESS_CHOICES[1:])
+        widgets.append(self._combobox_row(
+            body, "Controls", controls, CONTROL_CHOICES, width=24,
+            inherited=library.field_inherited(g, "controls"),
+        ))
+        widgets.append(self._combobox_row(
+            body, "CD32 pad mode", cd32, list(CD32_PAD_CHOICES),
+            inherited=library.field_inherited(g, "cd32_pad"),
+        ))
+        widgets.append(self._combobox_row(
+            body, "Block key dupes", stop_kp, list(STOP_KEYPRESS_CHOICES),
+            inherited=library.field_inherited(g, "stop_keypresses"),
+        ))
+        self._finish_widget_loading(widgets)
 
-        tk.Label(win, text="Notes", bg=CARD, fg=MUTED, font=("Sans", 10)).pack(
-            anchor="w", padx=16, pady=(8, 0))
-        notes = tk.Text(win, height=5, bg=BG, fg=TEXT, insertbackground=TEXT,
+        self._section_label(body, "Notes")
+        notes = tk.Text(body, height=4, bg=BG, fg=TEXT, insertbackground=TEXT,
                         relief="flat", font=("Sans", 10), wrap="word")
-        notes.pack(fill="both", expand=True, padx=16, pady=(2, 6))
+        notes.pack(fill="x", padx=0, pady=(2, 8))
         notes.insert("1.0", g.get("notes", ""))
 
+        global_full = "on" if defaults["fullscreen"] else "off"
+
         def save():
+            fv = full.get()
+            if fv == global_full:
+                fs_choice, fs_val = "default", "default"
+            else:
+                fs_choice, fs_val = fv, fv == "on"
+
             values: dict = {
                 "display_name": name_var.get().strip(),
                 "notes": notes.get("1.0", "end").strip(),
-                "controls": controls.get(),
-                "scale": scale.get(),
-                "filter": filt.get(),
-                "cd32_pad": cd32.get(),
-                "stop_keypresses": stop_kp.get(),
-                "screen_center_h": center_h.get(),
-                "screen_center_v": center_v.get(),
-                "screen_offset_h": offset_h.get().strip() or "default",
-                "screen_offset_v": offset_v.get().strip() or "default",
-                "fullscreen_choice": full.get(),
+                "controls": library.store_if_matches_global(controls.get(), defaults, "controls"),
+                "scale": library.store_if_matches_global(scale.get(), defaults, "scale"),
+                "filter": library.store_if_matches_global(filt.get(), defaults, "filter"),
+                "cd32_pad": library.store_if_matches_global(cd32.get(), defaults, "cd32_pad"),
+                "stop_keypresses": library.store_if_matches_global(stop_kp.get(), defaults, "stop_keypresses"),
+                "screen_center_h": library.store_if_matches_global(center_h.get(), defaults, "screen_center_h"),
+                "screen_center_v": library.store_if_matches_global(center_v.get(), defaults, "screen_center_v"),
+                "screen_offset_h": library.store_if_matches_global(
+                    offset_h.get().strip(), defaults, "screen_offset_h",
+                ),
+                "screen_offset_v": library.store_if_matches_global(
+                    offset_v.get().strip(), defaults, "screen_offset_v",
+                ),
+                "fullscreen_choice": fs_choice,
+                "fullscreen": fs_val,
             }
-            # Translate the tri-state fullscreen choice into the effective setting.
-            if full.get() == "on":
-                values["fullscreen"] = True
-            elif full.get() == "off":
-                values["fullscreen"] = False
-            else:
-                values["fullscreen"] = "default"
             library.set_game(self.paths, key, values)
             win.destroy()
             self.refresh()
 
-        self._dialog_buttons(win, save)
+        self._dialog_buttons(footer, save)
 
-    def _dialog_buttons(self, win, on_save):
-        tk = self.tk
-        bar = tk.Frame(win, bg=CARD)
-        bar.pack(fill="x", side="bottom", padx=16, pady=12)
-        tk.Button(bar, text="Save", command=on_save, bg=ACCENT, fg="#ffffff",
-                  activebackground=ACCENT_DK, activeforeground="#ffffff", relief="flat",
-                  font=("Sans", 11, "bold"), cursor="hand2", borderwidth=0,
-                  padx=16, pady=6).pack(side="right", padx=4)
-        tk.Button(bar, text="Cancel", command=win.destroy, bg=BG, fg=TEXT,
-                  activebackground=CARD_HOVER, activeforeground=TEXT, relief="flat",
-                  font=("Sans", 11), cursor="hand2", borderwidth=0,
-                  padx=16, pady=6).pack(side="right", padx=4)
+    def _dialog_buttons(self, parent, on_save):
+        ttk = self.ttk
+        ttk.Button(parent, text="Cancel", command=parent.winfo_toplevel().destroy,
+                   bootstyle=self._bootstyle_secondary).pack(side="right", padx=4)
+        ttk.Button(parent, text="Save", command=on_save, bootstyle=self._bootstyle_danger).pack(
+            side="right", padx=4,
+        )
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:
@@ -479,11 +620,9 @@ class EasyAmigaGUI:
         row.pack(fill="x", padx=8, pady=3)
         row.pack_propagate(False)
 
-        play = tk.Button(
+        play = self.ttk.Button(
             row, text="\u25B6", command=lambda p=config_path: self.play(p),
-            bg=ACCENT, fg="#ffffff", activebackground=ACCENT_DK,
-            activeforeground="#ffffff", relief="flat", font=("Sans", 14, "bold"),
-            cursor="hand2", borderwidth=0, width=2, padx=6, pady=4,
+            bootstyle=self._bootstyle_danger, width=3,
         )
         play.pack(side="left", padx=(10, 12), pady=8)
 

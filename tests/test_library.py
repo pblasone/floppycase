@@ -101,3 +101,15 @@ def test_hardware_from_db_and_cd32_detection():
     hw = library.hardware_from_db("BubbleBobble_v1.1_2518", db)
     assert library.needs_cd32_joystick_mode(hw)
     assert library.hardware_from_db("missing", db) is None
+
+
+def test_display_value_and_inherited(tmp_path):
+    paths = Paths.resolve(tmp_path)
+    defaults = library.get_defaults(paths)
+    game = {"controls": "default", "scale": "3x"}
+    assert library.field_inherited(game, "controls")
+    assert not library.field_inherited(game, "scale")
+    assert library.display_value(game, defaults, "controls") == defaults["controls"]
+    assert library.display_value(game, defaults, "scale") == "3x"
+    assert library.store_if_matches_global("keyboard-numpad", defaults, "controls") == "keyboard-numpad"
+    assert library.store_if_matches_global(defaults["controls"], defaults, "controls") == "default"
