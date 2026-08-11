@@ -55,6 +55,22 @@ def test_build_game_command_whdload_uses_autoload(tmp_path):
     assert str(lha) in cmd
 
 
+def test_default_joyports_keyboard(monkeypatch):
+    monkeypatch.delenv("EASYAMIGA_JOYPORTS", raising=False)
+    assert amiberry.default_joyports() == "Md"
+    monkeypatch.setenv("EASYAMIGA_JOYPORTS", "off")
+    assert amiberry.default_joyports() is None
+    monkeypatch.setenv("EASYAMIGA_JOYPORTS", "01")
+    assert amiberry.default_joyports() == "01"
+
+
+def test_build_game_command_adds_joyports(tmp_path):
+    lha = tmp_path / "Game.lha"
+    lha.write_bytes(b"x")
+    cmd = amiberry.build_game_command(lha, kind="whdload", amiberry=FAKE_EXE, joyports="Md")
+    assert cmd[-2:] == ["-J", "Md"]
+
+
 def test_build_game_command_adf_boots_directly(tmp_path):
     adf = tmp_path / "Lemmings.adf"
     adf.write_bytes(b"x")
