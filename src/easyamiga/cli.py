@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import __version__, amiberry, install as install_mod
+from . import __version__, amiberry, install as install_mod, library
 from .config_gen import ConfigOptions, read_meta, write_config
 from .games import (
     add_game as add_game_impl,
@@ -260,6 +260,8 @@ def run(
         console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
         raise typer.Exit(1)
 
+    eff = library.effective(paths, config_path.stem)
+    joyports, options = library.launch_args(eff)
     source, kind = resolve_launch(paths, config_path)
     if kind == "whdload" and source is not None:
         # WHDLoad game: boot it via Amiberry's WHDLoad Booter (--autoload),
@@ -267,14 +269,14 @@ def run(
         install_mod.sync_kickstarts(paths, log=lambda *_: None)
         console.print(f"Launching game (WHDLoad auto-boot): {source.name}")
         try:
-            amiberry.launch_game(source, kind, wait=True)
+            amiberry.launch_game(source, kind, wait=True, joyports=joyports, options=options)
         except FileNotFoundError as exc:
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1)
     else:
         # ADF game (boots the floppy) or a bare machine: use the generated config.
         console.print(f"Launching Amiberry: {config_path}")
-        amiberry.launch(config_path, wait=True)
+        amiberry.launch(config_path, wait=True, joyports=joyports, options=options)
 
 
 @app.command("list")

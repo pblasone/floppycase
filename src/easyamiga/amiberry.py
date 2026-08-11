@@ -133,15 +133,25 @@ def _joyport_args(joyports: str | None) -> list[str]:
     return ["-J", joyports] if joyports else []
 
 
+def _set_args(options: dict[str, str] | None) -> list[str]:
+    args: list[str] = []
+    for key, value in (options or {}).items():
+        args += ["-s", f"{key}={value}"]
+    return args
+
+
 def build_command(
-    config_path: Path, amiberry: str | None = None, joyports: str | None = None
+    config_path: Path,
+    amiberry: str | None = None,
+    joyports: str | None = None,
+    options: dict[str, str] | None = None,
 ) -> list[str]:
     exe = amiberry or find_amiberry()
     if exe is None:
         raise FileNotFoundError(
             "Amiberry is not installed. Run 'easyamiga install' first."
         )
-    return [exe, "--config", str(config_path), *_joyport_args(joyports)]
+    return [exe, "--config", str(config_path), *_joyport_args(joyports), *_set_args(options)]
 
 
 def _exe_or_raise(amiberry: str | None) -> str:
@@ -176,6 +186,7 @@ def build_game_command(
     amiberry: str | None = None,
     rescan: bool = True,
     joyports: str | None = None,
+    options: dict[str, str] | None = None,
 ) -> list[str]:
     """Build the Amiberry command to actually boot a game.
 
@@ -198,6 +209,7 @@ def build_game_command(
         # Unknown container: let the WHDLoad Booter try it.
         cmd += ["--autoload", str(source)]
     cmd += _joyport_args(joyports)
+    cmd += _set_args(options)
     return cmd
 
 
@@ -222,10 +234,11 @@ def launch(
     amiberry: str | None = None,
     wait: bool = True,
     joyports=_JOYPORTS_DEFAULT,
+    options: dict[str, str] | None = None,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.Popen | subprocess.CompletedProcess:
     """Launch Amiberry with a generated ``.uae`` config (bare machine / ADF)."""
-    cmd = build_command(config_path, amiberry, _resolve_joyports(joyports))
+    cmd = build_command(config_path, amiberry, _resolve_joyports(joyports), options)
     return _spawn(cmd, wait, extra_env)
 
 
@@ -237,6 +250,7 @@ def launch_game(
     rescan: bool = True,
     fresh: bool = True,
     joyports=_JOYPORTS_DEFAULT,
+    options: dict[str, str] | None = None,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.Popen | subprocess.CompletedProcess:
     """Boot an actual game (WHDLoad archive or disk image) via Amiberry.
@@ -244,10 +258,10 @@ def launch_game(
     ``fresh=True`` first removes the WHDLoad Booter's cached config for the game
     so it regenerates against the current ROMs/settings (avoids stale 68000
     configs being reused). ``joyports`` defaults to keyboard-as-joystick so games
-    are playable without a controller.
+    are playable without a controller. ``options`` are passed as ``-s key=value``.
     """
     resolved = resolve_game_source(source)
     if fresh and resolved.suffix.lower() in WHDLOAD_ARCHIVES:
         clear_game_config(resolved)
-    cmd = build_game_command(resolved, kind, amiberry, rescan, _resolve_joyports(joyports))
+    cmd = build_game_command(resolved, kind, amiberry, rescan, _resolve_joyports(joyports), options)
     return _spawn(cmd, wait, extra_env)
