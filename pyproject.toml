@@ -16,7 +16,6 @@ dependencies = [
     "rich>=13.7",
     "requests>=2.31",
     "platformdirs>=4.2",
-    "ttkbootstrap>=1.10",
 ]
 
 [project.optional-dependencies]

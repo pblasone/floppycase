@@ -1,8 +1,8 @@
 """A simple, friendly desktop GUI for easyamiga.
 
-Built with **Tkinter** plus **ttkbootstrap** for a coherent dark theme. The window
-scans the games folder and shows each game in an alphabetical list. System
-``python3-tk`` is still required (``easyamiga install`` installs it).
+The window scans the games folder and shows each game in an alphabetical list.
+Built with Tkinter so it has no extra Python dependencies (it only needs the
+system ``python3-tk`` package, which ``easyamiga install`` sets up).
 """
 
 from __future__ import annotations
@@ -69,43 +69,31 @@ def _label_for(config_path: Path) -> str:
 class EasyAmigaGUI:
     def __init__(self, base: Optional[str] = None) -> None:
         import tkinter as tk
-        import ttkbootstrap as ttk
-        from ttkbootstrap.constants import DANGER, SECONDARY
+        from tkinter import ttk
 
         self.tk = tk
         self.ttk = ttk
-        self._bootstyle_danger = DANGER
-        self._bootstyle_secondary = SECONDARY
         self.paths = Paths.resolve(base)
         self.paths.ensure()
         self.roms_dir = install_mod.effective_roms_dir(self.paths)
         self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
         self._rows: list[tk.Widget] = []
 
-        self.root = ttk.Window(
-            title="easyamiga",
-            themename="darkly",
-            size=(900, 620),
-            minsize=(560, 420),
-        )
+        self.root = tk.Tk()
+        self.root.title("easyamiga")
+        self.root.geometry("900x620")
+        self.root.minsize(560, 420)
         self.root.configure(bg=BG)
-        self._setup_styles()
 
         self._build_header()
         self._build_toolbar()
         self._build_list()
         self._build_statusbar()
 
-        # Auto-scan on open so games appear with zero effort.
-        self.do_scan(announce=False)
+        self.refresh()
         self._update_amiberry_banner()
-
-    def _setup_styles(self) -> None:
-        style = self.root.style
-        style.configure("Inherited.TCombobox", foreground=INHERITED)
-        style.configure("Override.TCombobox", foreground=TEXT)
-        style.configure("Inherited.TEntry", foreground=INHERITED)
-        style.configure("Override.TEntry", foreground=TEXT)
+        # Paint the window first; scan can take a moment on large libraries.
+        self.root.after(50, lambda: self.do_scan(announce=False))
 
     # --- UI construction ---------------------------------------------------
     def _build_header(self) -> None:
@@ -139,11 +127,12 @@ class EasyAmigaGUI:
         self._toolbar_button(bar, "\u2699  Settings", self.open_default_settings)
 
     def _toolbar_button(self, parent, text, command):
-        ttk = self.ttk
-        btn = ttk.Button(
-            parent, text=text, command=command, bootstyle=self._bootstyle_secondary,
-        )
-        btn.pack(side="left", padx=4, pady=2)
+        tk = self.tk
+        btn = tk.Button(parent, text=text, command=command, bg=CARD, fg=TEXT,
+                        activebackground=CARD_HOVER, activeforeground=TEXT,
+                        relief="flat", font=("Sans", 10), padx=10, pady=6,
+                        cursor="hand2", borderwidth=0)
+        btn.pack(side="left", padx=4)
         return btn
 
     def _build_list(self) -> None:
@@ -337,45 +326,56 @@ class EasyAmigaGUI:
         scroll.pack(side="right", fill="y")
         return body
 
-    def _combobox_row(
+    def _dropdown(
         self,
         parent,
         label: str,
         var,
         choices: list[str],
         inherited: bool = False,
-        width: int = 22,
+        width: int = 16,
     ):
-        tk, ttk = self.tk, self.ttk
+        tk = self.tk
         row = tk.Frame(parent, bg=CARD)
         row.pack(fill="x", pady=4)
         tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
                  anchor="w").pack(side="left")
-        style = "Inherited.TCombobox" if inherited else "Override.TCombobox"
-        combo = ttk.Combobox(
-            row, textvariable=var, values=choices, state="readonly", width=width, style=style,
+        fg = INHERITED if inherited else TEXT
+        menu = tk.OptionMenu(row, var, *choices)
+        menu.configure(
+            bg=BG, fg=fg, activebackground=CARD_HOVER, activeforeground=TEXT,
+            highlightthickness=0, relief="flat", font=("Sans", 10), width=width,
         )
-        combo.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        menu["menu"].configure(bg=BG, fg=TEXT)
+        menu.pack(side="left", fill="x", expand=True, padx=(0, 4))
 
         loading = True
 
         def mark_override(*_):
             if loading:
                 return
-            combo.configure(style="Override.TCombobox")
+            menu.configure(fg=TEXT)
 
         var.trace_add("write", mark_override)
-        combo._ea_finish_loading = finish_loading  # noqa: SLF001
-        return combo
+
+        def finish_loading():
+            nonlocal loading
+            loading = False
+
+        menu._ea_finish_loading = finish_loading  # noqa: SLF001
+        return menu
 
     def _entry_row(self, parent, label: str, var, inherited: bool = False, width: int = 12):
-        tk, ttk = self.tk, self.ttk
+        tk = self.tk
         row = tk.Frame(parent, bg=CARD)
         row.pack(fill="x", pady=4)
         tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
                  anchor="w").pack(side="left")
-        style = "Inherited.TEntry" if inherited else "Override.TEntry"
-        entry = ttk.Entry(row, textvariable=var, width=width, style=style)
+        fg = INHERITED if inherited else TEXT
+        entry = tk.Entry(
+            row, textvariable=var, bg=BG, fg=fg, insertbackground=TEXT,
+            relief="flat", font=("Sans", 10), width=width,
+        )
         entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
 
         loading = True
@@ -383,7 +383,7 @@ class EasyAmigaGUI:
         def mark_override(*_):
             if loading:
                 return
-            entry.configure(style="Override.TEntry")
+            entry.configure(fg=TEXT)
 
         var.trace_add("write", mark_override)
 
@@ -430,18 +430,18 @@ class EasyAmigaGUI:
 
         widgets = []
         self._section_label(body, "Display")
-        widgets.append(self._combobox_row(body, "Fullscreen", full, ["off", "on"]))
-        widgets.append(self._combobox_row(body, "Window scale", scale, SCALE_CHOICES))
-        widgets.append(self._combobox_row(body, "Filter", filt, FILTER_CHOICES))
-        widgets.append(self._combobox_row(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES))
-        widgets.append(self._combobox_row(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES))
+        widgets.append(self._dropdown(body, "Fullscreen", full, ["off", "on"]))
+        widgets.append(self._dropdown(body, "Window scale", scale, SCALE_CHOICES))
+        widgets.append(self._dropdown(body, "Filter", filt, FILTER_CHOICES))
+        widgets.append(self._dropdown(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES))
+        widgets.append(self._dropdown(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES))
         widgets.append(self._entry_row(body, "Offset horizontal", offset_h))
         widgets.append(self._entry_row(body, "Offset vertical", offset_v))
 
         self._section_label(body, "Input")
-        widgets.append(self._combobox_row(body, "Controls", controls, CONTROL_CHOICES, width=24))
-        widgets.append(self._combobox_row(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES))
-        widgets.append(self._combobox_row(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES))
+        widgets.append(self._dropdown(body, "Controls", controls, CONTROL_CHOICES, width=22))
+        widgets.append(self._dropdown(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES))
+        widgets.append(self._dropdown(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES))
         self._finish_widget_loading(widgets)
 
         def save():
@@ -487,8 +487,10 @@ class EasyAmigaGUI:
         row.pack(fill="x", pady=4)
         tk.Label(row, text="Display name", bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
                  anchor="w").pack(side="left")
-        name_entry = self.ttk.Entry(row, textvariable=name_var, width=28)
-        name_entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        tk.Entry(
+            row, textvariable=name_var, bg=BG, fg=TEXT, insertbackground=TEXT,
+            relief="flat", font=("Sans", 10), width=28,
+        ).pack(side="left", fill="x", expand=True, padx=(0, 4))
 
         controls = tk.StringVar(value=library.display_value(g, defaults, "controls"))
         full = tk.StringVar(value=library.display_value(g, defaults, "fullscreen"))
@@ -503,23 +505,23 @@ class EasyAmigaGUI:
 
         widgets = []
         self._section_label(body, "Display")
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Fullscreen", full, ["off", "on"],
             inherited=library.fullscreen_inherited(g),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Window scale", scale, SCALE_CHOICES,
             inherited=library.field_inherited(g, "scale"),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Filter", filt, FILTER_CHOICES,
             inherited=library.field_inherited(g, "filter"),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Center horizontal", center_h, list(SCREEN_CENTER_CHOICES),
             inherited=library.field_inherited(g, "screen_center_h"),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Center vertical", center_v, list(SCREEN_CENTER_CHOICES),
             inherited=library.field_inherited(g, "screen_center_v"),
         ))
@@ -533,15 +535,15 @@ class EasyAmigaGUI:
         ))
 
         self._section_label(body, "Input")
-        widgets.append(self._combobox_row(
-            body, "Controls", controls, CONTROL_CHOICES, width=24,
+        widgets.append(self._dropdown(
+            body, "Controls", controls, CONTROL_CHOICES, width=22,
             inherited=library.field_inherited(g, "controls"),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "CD32 pad mode", cd32, list(CD32_PAD_CHOICES),
             inherited=library.field_inherited(g, "cd32_pad"),
         ))
-        widgets.append(self._combobox_row(
+        widgets.append(self._dropdown(
             body, "Block key dupes", stop_kp, list(STOP_KEYPRESS_CHOICES),
             inherited=library.field_inherited(g, "stop_keypresses"),
         ))
@@ -588,12 +590,15 @@ class EasyAmigaGUI:
         self._dialog_buttons(footer, save)
 
     def _dialog_buttons(self, parent, on_save):
-        ttk = self.ttk
-        ttk.Button(parent, text="Cancel", command=parent.winfo_toplevel().destroy,
-                   bootstyle=self._bootstyle_secondary).pack(side="right", padx=4)
-        ttk.Button(parent, text="Save", command=on_save, bootstyle=self._bootstyle_danger).pack(
-            side="right", padx=4,
-        )
+        tk = self.tk
+        tk.Button(parent, text="Cancel", command=parent.winfo_toplevel().destroy,
+                  bg=CARD, fg=TEXT, activebackground=CARD_HOVER, activeforeground=TEXT,
+                  relief="flat", font=("Sans", 11), cursor="hand2", borderwidth=0,
+                  padx=12, pady=6).pack(side="right", padx=4)
+        tk.Button(parent, text="Save", command=on_save, bg=ACCENT, fg="#ffffff",
+                  activebackground=ACCENT_DK, activeforeground="#ffffff", relief="flat",
+                  font=("Sans", 11, "bold"), cursor="hand2", borderwidth=0,
+                  padx=16, pady=6).pack(side="right", padx=4)
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:
@@ -620,9 +625,11 @@ class EasyAmigaGUI:
         row.pack(fill="x", padx=8, pady=3)
         row.pack_propagate(False)
 
-        play = self.ttk.Button(
+        play = tk.Button(
             row, text="\u25B6", command=lambda p=config_path: self.play(p),
-            bootstyle=self._bootstyle_danger, width=3,
+            bg=ACCENT, fg="#ffffff", activebackground=ACCENT_DK,
+            activeforeground="#ffffff", relief="flat", font=("Sans", 14, "bold"),
+            cursor="hand2", borderwidth=0, width=2, padx=6, pady=4,
         )
         play.pack(side="left", padx=(10, 12), pady=8)
 
