@@ -131,6 +131,17 @@ def test_hardware_from_db_and_cd32_detection():
     assert library.hardware_from_db("missing", db) is None
 
 
+def test_display_entry_value_and_empty_store(tmp_path):
+    paths = Paths.resolve(tmp_path)
+    defaults = library.get_defaults(paths)
+    game = {}
+    assert library.display_entry_value(game, defaults, "screen_offset_h") == ""
+    library.set_game(paths, "G", {"screen_offset_h": "-40"})
+    g = library.get_game(paths, "G")
+    assert library.display_entry_value(g, defaults, "screen_offset_h") == "-40"
+    assert library.store_if_matches_global("", defaults, "screen_offset_h") == "default"
+
+
 def test_display_value_and_inherited(tmp_path):
     paths = Paths.resolve(tmp_path)
     defaults = library.get_defaults(paths)

@@ -132,10 +132,26 @@ def display_value(game: dict, defaults: dict, field: str) -> str:
 
 def store_if_matches_global(current: str, defaults: dict, field: str) -> str:
     """Store ``default`` when ``current`` matches the global default value."""
-    global_val = defaults.get(field, DEFAULT_SETTINGS.get(field, ""))
-    if str(current).strip() == str(global_val).strip():
+    stripped = str(current).strip()
+    if not stripped:
         return "default"
-    return current.strip() if isinstance(current, str) else str(current)
+    global_val = defaults.get(field, DEFAULT_SETTINGS.get(field, ""))
+    if stripped == str(global_val).strip():
+        return "default"
+    return stripped
+
+
+def display_entry_value(game: dict, defaults: dict, field: str) -> str:
+    """Text for numeric offset fields: blank when unset or inheriting ``default``."""
+    if field_inherited(game, field):
+        global_val = defaults.get(field, DEFAULT_SETTINGS.get(field, ""))
+        if str(global_val).strip() in ("", "default"):
+            return ""
+        return str(global_val).strip()
+    raw = game.get(field, "")
+    if str(raw).strip() in ("", "default"):
+        return ""
+    return str(raw).strip()
 
 
 # --- display names -------------------------------------------------------------

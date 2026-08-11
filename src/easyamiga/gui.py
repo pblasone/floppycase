@@ -8,6 +8,7 @@ system ``python3-tk`` package, which ``easyamiga install`` sets up).
 from __future__ import annotations
 
 import subprocess
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -41,12 +42,24 @@ CARD_HOVER = "#273449"
 ACCENT = "#ff2d2d"
 ACCENT_DK = "#b30000"
 PLAY_FG = "#34d399"  # minimal green play control
+PLAY_RING = "#2dd4bf"
+PLAY_FILL = "#134e4a"
+SAVE_BG = "#10b981"
+SAVE_HOVER = "#059669"
+FIELD_BG = "#0b1220"
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
 INHERITED = "#64748b"  # weaker than MUTED for inherited per-game values
 
-ROW_H = 40
+ROW_H = 38
 ROW_BATCH = 30
+INPUT_H = 30
+LABEL_W = 18
+SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+def _blank_default(value: str) -> str:
+    return "" if str(value).strip() == "default" else str(value)
 
 
 def _read_field(path: Path, key: str) -> Optional[str]:
@@ -86,12 +99,15 @@ class EasyAmigaGUI:
         self._row_widgets: dict[str, dict] = {}
         self._library_cache: dict | None = None
         self._pending_configs: list[Path] = []
+        self._scanning = False
+        self._spin_index = 0
 
         self.root = tk.Tk()
         self.root.title("easyamiga")
         self.root.geometry("900x620")
         self.root.minsize(560, 420)
         self.root.configure(bg=BG)
+        self._setup_widget_styles()
 
         self._build_header()
         self._build_toolbar()
@@ -103,7 +119,37 @@ class EasyAmigaGUI:
         # Paint the window first; scan can take a moment on large libraries.
         self.root.after(50, lambda: self.do_scan(announce=False))
 
-    # --- UI construction ---------------------------------------------------
+    def _setup_widget_styles(self) -> None:
+        style = self.ttk.Style()
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+        combo_base = {
+            "fieldbackground": FIELD_BG,
+            "background": FIELD_BG,
+            "foreground": TEXT,
+            "arrowcolor": MUTED,
+            "bordercolor": FIELD_BG,
+            "lightcolor": FIELD_BG,
+            "darkcolor": FIELD_BG,
+            "borderwidth": 0,
+            "relief": "flat",
+            "padding": (8, 6),
+        }
+        style.configure("Ea.TCombobox", **combo_base)
+        style.map(
+            "Ea.TCombobox",
+            fieldbackground=[("readonly", FIELD_BG), ("disabled", FIELD_BG)],
+            foreground=[("readonly", TEXT)],
+            background=[("readonly", FIELD_BG)],
+        )
+        style.configure("EaInherited.TCombobox", **{**combo_base, "foreground": INHERITED})
+        style.map(
+            "EaInherited.TCombobox",
+            fieldbackground=[("readonly", FIELD_BG)],
+            foreground=[("readonly", INHERITED)],
+        )
     def _build_header(self) -> None:
         tk = self.tk
         header = tk.Frame(self.root, bg=BG)
@@ -170,6 +216,14 @@ class EasyAmigaGUI:
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             self.canvas.bind_all(seq, self._on_scroll)
 
+        self.scan_overlay = tk.Frame(container, bg=CONTENT_BG)
+        self.scan_overlay_label = tk.Label(
+            self.scan_overlay, text="", bg=CONTENT_BG, fg=MUTED,
+            font=("Sans", 12),
+        )
+        self.scan_overlay_label.pack(expand=True)
+        self._list_container = container
+
     def _build_statusbar(self) -> None:
         tk = self.tk
         self.status = tk.Label(self.root, text="", bg="#020617", fg=MUTED,
@@ -214,22 +268,54 @@ class EasyAmigaGUI:
         return pick_rom_for_model(detect_roms(self.roms_dir), model_key)
 
     def do_scan(self, announce: bool = True) -> None:
-        from tkinter import messagebox
+        if self._scanning:
+            return
+        self._scanning = True
+        self._show_scan_overlay()
+        self._animate_scan()
 
-        model = get_model(self._default_model())
-        rom = self._current_rom(model.key)
-        pruned = prune_orphans(self.paths)  # drop games whose files were deleted
-        games = scan_games(self.paths, model, rom=rom, roms_dir=self.roms_dir, prune=False)
-        added = sum(1 for g in games if g.newly_created)
-        self.refresh()
-        if announce:
-            msg = (
-                f"Found {len(games)} game(s) in your games folder.\n"
-                f"Added {added} new one(s)."
+        def work() -> None:
+            from tkinter import messagebox
+
+            model = get_model(self._default_model())
+            rom = self._current_rom(model.key)
+            pruned = prune_orphans(self.paths)
+            games = scan_games(
+                self.paths, model, rom=rom, roms_dir=self.roms_dir, prune=False,
             )
-            if pruned:
-                msg += f"\nRemoved {len(pruned)} game(s) whose files were deleted."
-            messagebox.showinfo("Scan complete", msg)
+            added = sum(1 for g in games if g.newly_created)
+
+            def finish() -> None:
+                self._hide_scan_overlay()
+                self.refresh()
+                if announce:
+                    msg = (
+                        f"Found {len(games)} game(s) in your games folder.\n"
+                        f"Added {added} new one(s)."
+                    )
+                    if pruned:
+                        msg += f"\nRemoved {len(pruned)} game(s) whose files were deleted."
+                    messagebox.showinfo("Scan complete", msg)
+
+            self.root.after(0, finish)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_scan_overlay(self) -> None:
+        self._spin_index = 0
+        self.scan_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+    def _hide_scan_overlay(self) -> None:
+        self._scanning = False
+        self.scan_overlay.place_forget()
+
+    def _animate_scan(self) -> None:
+        if not self._scanning:
+            return
+        ch = SPIN_CHARS[self._spin_index % len(SPIN_CHARS)]
+        self._spin_index += 1
+        self.scan_overlay_label.configure(text=f"{ch}  Scanning games folder…")
+        self.root.after(90, self._animate_scan)
 
     def add_file(self) -> None:
         from tkinter import filedialog
@@ -349,6 +435,20 @@ class EasyAmigaGUI:
         scroll.pack(side="right", fill="y")
         return body
 
+    def _form_label(self, parent, text: str) -> None:
+        tk = self.tk
+        tk.Label(
+            parent, text=text, bg=CARD, fg=MUTED, font=("Sans", 10),
+            width=LABEL_W, anchor="w",
+        ).pack(side="left", padx=(0, 10))
+
+    def _input_shell(self, parent) -> tk.Frame:
+        tk = self.tk
+        shell = tk.Frame(parent, bg=FIELD_BG, height=INPUT_H)
+        shell.pack(side="left", fill="x", expand=True)
+        shell.pack_propagate(False)
+        return shell
+
     def _dropdown(
         self,
         parent,
@@ -356,28 +456,26 @@ class EasyAmigaGUI:
         var,
         choices: list[str],
         inherited: bool = False,
-        width: int = 16,
+        width: int = 20,
     ):
-        tk = self.tk
+        tk, ttk = self.tk, self.ttk
         row = tk.Frame(parent, bg=CARD)
-        row.pack(fill="x", pady=4)
-        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
-                 anchor="w").pack(side="left")
-        fg = INHERITED if inherited else TEXT
-        menu = tk.OptionMenu(row, var, *choices)
-        menu.configure(
-            bg=BG, fg=fg, activebackground=CARD_HOVER, activeforeground=TEXT,
-            highlightthickness=0, relief="flat", font=("Sans", 10), width=width,
+        row.pack(fill="x", pady=3)
+        self._form_label(row, label)
+        shell = self._input_shell(row)
+        style = "EaInherited.TCombobox" if inherited else "Ea.TCombobox"
+        combo = ttk.Combobox(
+            shell, textvariable=var, values=choices, state="readonly",
+            style=style, font=("Sans", 10), width=width,
         )
-        menu["menu"].configure(bg=BG, fg=TEXT)
-        menu.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        combo.pack(fill="both", expand=True, padx=1, pady=1)
 
         loading = True
 
         def mark_override(*_):
             if loading:
                 return
-            menu.configure(fg=TEXT)
+            combo.configure(style="Ea.TCombobox")
 
         var.trace_add("write", mark_override)
 
@@ -385,21 +483,22 @@ class EasyAmigaGUI:
             nonlocal loading
             loading = False
 
-        menu._ea_finish_loading = finish_loading  # noqa: SLF001
-        return menu
+        combo._ea_finish_loading = finish_loading  # noqa: SLF001
+        return combo
 
     def _entry_row(self, parent, label: str, var, inherited: bool = False, width: int = 12):
         tk = self.tk
         row = tk.Frame(parent, bg=CARD)
-        row.pack(fill="x", pady=4)
-        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
-                 anchor="w").pack(side="left")
+        row.pack(fill="x", pady=3)
+        self._form_label(row, label)
+        shell = self._input_shell(row)
         fg = INHERITED if inherited else TEXT
         entry = tk.Entry(
-            row, textvariable=var, bg=BG, fg=fg, insertbackground=TEXT,
+            shell, textvariable=var, bg=FIELD_BG, fg=fg, insertbackground=TEXT,
             relief="flat", font=("Sans", 10), width=width,
+            highlightthickness=0, borderwidth=0,
         )
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        entry.pack(fill="both", expand=True, padx=8, pady=4)
 
         loading = True
 
@@ -415,6 +514,20 @@ class EasyAmigaGUI:
             loading = False
 
         entry._ea_finish_loading = finish_loading  # noqa: SLF001
+        return entry
+
+    def _name_entry_row(self, parent, label: str, var):
+        tk = self.tk
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", pady=3)
+        self._form_label(row, label)
+        shell = self._input_shell(row)
+        entry = tk.Entry(
+            shell, textvariable=var, bg=FIELD_BG, fg=TEXT, insertbackground=TEXT,
+            relief="flat", font=("Sans", 10),
+            highlightthickness=0, borderwidth=0,
+        )
+        entry.pack(fill="both", expand=True, padx=8, pady=4)
         return entry
 
     def _section_label(self, parent, text: str):
@@ -448,11 +561,11 @@ class EasyAmigaGUI:
         stop_kp = tk.StringVar(value=d.get("stop_keypresses", "default"))
         center_h = tk.StringVar(value=d.get("screen_center_h", "default"))
         center_v = tk.StringVar(value=d.get("screen_center_v", "default"))
-        offset_h = tk.StringVar(value=d.get("screen_offset_h", "default"))
-        offset_v = tk.StringVar(value=d.get("screen_offset_v", "default"))
+        offset_h = tk.StringVar(value=_blank_default(d.get("screen_offset_h", "default")))
+        offset_v = tk.StringVar(value=_blank_default(d.get("screen_offset_v", "default")))
         video_std = tk.StringVar(value=d.get("video_standard", "default"))
         line_mode = tk.StringVar(value=d.get("line_mode", "default"))
-        vert_off = tk.StringVar(value=d.get("vertical_offset", "default"))
+        vert_off = tk.StringVar(value=_blank_default(d.get("vertical_offset", "default")))
 
         widgets = []
         self._section_label(body, "Display")
@@ -505,6 +618,11 @@ class EasyAmigaGUI:
         tk.Label(win, text=real, bg=CARD, fg=TEXT, font=("Sans", 14, "bold"),
                  wraplength=440, justify="left").pack(anchor="w", padx=16, pady=(14, 0))
         tk.Label(win, text=key, bg=CARD, fg=MUTED, font=("Sans", 8)).pack(anchor="w", padx=16)
+        chipset = (_read_field(config_path, "chipset") or "").upper()
+        if chipset:
+            tk.Label(
+                win, text=f"Machine type: {chipset}", bg=CARD, fg=MUTED, font=("Sans", 9),
+            ).pack(anchor="w", padx=16, pady=(2, 0))
         tk.Label(
             win,
             text="Dim values follow global defaults; bright values are set for this game only.",
@@ -515,14 +633,7 @@ class EasyAmigaGUI:
         body = self._scrollable_body(main)
 
         name_var = tk.StringVar(value=g.get("display_name", ""))
-        row = tk.Frame(body, bg=CARD)
-        row.pack(fill="x", pady=4)
-        tk.Label(row, text="Display name", bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
-                 anchor="w").pack(side="left")
-        tk.Entry(
-            row, textvariable=name_var, bg=BG, fg=TEXT, insertbackground=TEXT,
-            relief="flat", font=("Sans", 10), width=28,
-        ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self._name_entry_row(body, "Display name", name_var)
 
         controls = tk.StringVar(value=library.display_value(g, defaults, "controls"))
         full = tk.StringVar(value=library.display_value(g, defaults, "fullscreen"))
@@ -532,11 +643,11 @@ class EasyAmigaGUI:
         stop_kp = tk.StringVar(value=library.display_value(g, defaults, "stop_keypresses"))
         center_h = tk.StringVar(value=library.display_value(g, defaults, "screen_center_h"))
         center_v = tk.StringVar(value=library.display_value(g, defaults, "screen_center_v"))
-        offset_h = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_h"))
-        offset_v = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_v"))
+        offset_h = tk.StringVar(value=library.display_entry_value(g, defaults, "screen_offset_h"))
+        offset_v = tk.StringVar(value=library.display_entry_value(g, defaults, "screen_offset_v"))
         video_std = tk.StringVar(value=library.display_value(g, defaults, "video_standard"))
         line_mode = tk.StringVar(value=library.display_value(g, defaults, "line_mode"))
-        vert_off = tk.StringVar(value=library.display_value(g, defaults, "vertical_offset"))
+        vert_off = tk.StringVar(value=library.display_entry_value(g, defaults, "vertical_offset"))
 
         widgets = []
         self._section_label(body, "Display")
@@ -597,9 +708,14 @@ class EasyAmigaGUI:
         self._finish_widget_loading(widgets)
 
         self._section_label(body, "Notes")
-        notes = tk.Text(body, height=4, bg=BG, fg=TEXT, insertbackground=TEXT,
-                        relief="flat", font=("Sans", 10), wrap="word")
-        notes.pack(fill="x", padx=0, pady=(2, 8))
+        notes_shell = tk.Frame(body, bg=FIELD_BG)
+        notes_shell.pack(fill="x", pady=(2, 8))
+        notes = tk.Text(
+            notes_shell, height=4, bg=FIELD_BG, fg=TEXT, insertbackground=TEXT,
+            relief="flat", font=("Sans", 10), wrap="word",
+            highlightthickness=0, borderwidth=0,
+        )
+        notes.pack(fill="both", expand=True, padx=8, pady=6)
         notes.insert("1.0", g.get("notes", ""))
 
         global_full = "on" if defaults["fullscreen"] else "off"
@@ -651,11 +767,11 @@ class EasyAmigaGUI:
         tk.Button(parent, text="Cancel", command=parent.winfo_toplevel().destroy,
                   bg=CARD, fg=TEXT, activebackground=CARD_HOVER, activeforeground=TEXT,
                   relief="flat", font=("Sans", 11), cursor="hand2", borderwidth=0,
-                  padx=12, pady=6).pack(side="right", padx=4)
-        tk.Button(parent, text="Save", command=on_save, bg=ACCENT, fg="#ffffff",
-                  activebackground=ACCENT_DK, activeforeground="#ffffff", relief="flat",
+                  highlightthickness=0, padx=12, pady=6).pack(side="right", padx=4)
+        tk.Button(parent, text="Save", command=on_save, bg=SAVE_BG, fg="#ffffff",
+                  activebackground=SAVE_HOVER, activeforeground="#ffffff", relief="flat",
                   font=("Sans", 11, "bold"), cursor="hand2", borderwidth=0,
-                  padx=16, pady=6).pack(side="right", padx=4)
+                  highlightthickness=0, padx=16, pady=6).pack(side="right", padx=4)
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:
@@ -690,15 +806,6 @@ class EasyAmigaGUI:
         )
         self._update_amiberry_banner()
 
-    def _row_tag_text(self, config_path: Path) -> str:
-        chipset = (_read_field(config_path, "chipset") or "").upper()
-        parts: list[str] = []
-        if chipset:
-            parts.append(chipset)
-        if self._get_game_cached(config_path.stem).get("notes", ""):
-            parts.append("\u270e")
-        return "  " + "  ".join(parts) if parts else ""
-
     def _update_row_after_save(self, config_path: Path) -> None:
         stem = config_path.stem
         widgets = self._row_widgets.get(stem)
@@ -706,7 +813,6 @@ class EasyAmigaGUI:
             self.refresh()
             return
         widgets["title_label"].configure(text=self._title_for(config_path))
-        widgets["tag_label"].configure(text=self._row_tag_text(config_path))
         self._repack_rows_sorted()
 
     def _repack_rows_sorted(self) -> None:
@@ -717,6 +823,31 @@ class EasyAmigaGUI:
             if row is not None:
                 row.pack(fill="x", padx=8, pady=3)
 
+    def _circle_play_button(self, parent, command):
+        tk = self.tk
+        size = 34
+        canvas = tk.Canvas(
+            parent, width=size, height=size, bg=CARD, highlightthickness=0, bd=0,
+            cursor="hand2",
+        )
+        ring = canvas.create_oval(2, 2, size - 2, size - 2, outline=PLAY_RING, width=1)
+        fill = canvas.create_oval(3, 3, size - 3, size - 3, outline="", fill=PLAY_FILL)
+        tri = canvas.create_polygon(
+            14, 11, 14, 23, 24, 17, fill=PLAY_FG, outline="",
+        )
+
+        def _paint(bg: str) -> None:
+            canvas.configure(bg=bg)
+            canvas.itemconfigure(ring, outline=PLAY_RING)
+            canvas.itemconfigure(fill, fill=PLAY_FILL if bg == CARD else CARD_HOVER)
+            canvas.itemconfigure(tri, fill=PLAY_FG)
+
+        def on_click(_event=None):
+            command()
+
+        canvas.bind("<Button-1>", on_click)
+        return canvas, _paint
+
     def _make_row(self, config_path: Path):
         tk = self.tk
         stem = config_path.stem
@@ -726,42 +857,28 @@ class EasyAmigaGUI:
         row.pack_propagate(False)
         self._row_by_stem[stem] = row
 
-        play = tk.Button(
-            row, text="\u25b8", command=lambda p=config_path: self.play(p),
-            bg=CARD, fg=PLAY_FG, activebackground=CARD_HOVER,
-            activeforeground=PLAY_FG, relief="flat", font=("Sans", 15),
-            cursor="hand2", borderwidth=0, width=2, padx=4, pady=2,
+        play_wrap = tk.Frame(row, bg=CARD)
+        play_wrap.pack(side="left", padx=(8, 10), pady=4)
+        play, paint_play = self._circle_play_button(
+            play_wrap, lambda p=config_path: self.play(p),
         )
-        play.pack(side="left", padx=(8, 10), pady=6)
+        play.pack()
 
         info = tk.Frame(row, bg=CARD)
         info.pack(side="left", fill="both", expand=True, pady=6)
-        title_row = tk.Frame(info, bg=CARD)
-        title_row.pack(anchor="w", fill="x")
         title_label = tk.Label(
-            title_row, text=self._title_for(config_path), bg=CARD, fg=TEXT,
+            info, text=self._title_for(config_path), bg=CARD, fg=TEXT,
             font=("Sans", 13, "bold"), anchor="w", justify="left",
         )
-        title_label.pack(side="left")
-        tag_label = tk.Label(
-            title_row, text=self._row_tag_text(config_path), bg=CARD, fg=MUTED,
-            font=("Sans", 10), anchor="w", justify="left",
-        )
-        tag_label.pack(side="left")
-        self._row_widgets[stem] = {
-            "title_label": title_label,
-            "tag_label": tag_label,
-            "info": info,
-            "cog": None,
-        }
+        title_label.pack(anchor="w", fill="x")
+        self._row_widgets[stem] = {"title_label": title_label, "info": info, "cog": None}
 
-        cog = tk.Button(
-            row, text="\u2699", command=lambda p=config_path: self.open_game_settings(p),
-            bg=CARD, fg=MUTED, activebackground=CARD_HOVER, activeforeground=TEXT,
-            relief="flat", font=("Sans", 14), cursor="hand2", borderwidth=0,
-            padx=10, pady=4,
+        cog = tk.Label(
+            row, text="\u2699", bg=CARD, fg=MUTED, font=("Sans", 15),
+            cursor="hand2", padx=10, pady=4,
         )
         cog.pack(side="right", padx=(4, 10))
+        cog.bind("<Button-1>", lambda e, p=config_path: self.open_game_settings(p))
         self._row_widgets[stem]["cog"] = cog
 
         for widget in (row, info, play):
@@ -770,19 +887,17 @@ class EasyAmigaGUI:
         def on_enter(_):
             row.configure(bg=CARD_HOVER)
             info.configure(bg=CARD_HOVER)
-            title_row.configure(bg=CARD_HOVER)
             title_label.configure(bg=CARD_HOVER)
-            tag_label.configure(bg=CARD_HOVER)
             cog.configure(bg=CARD_HOVER)
-            play.configure(bg=CARD_HOVER)
+            play_wrap.configure(bg=CARD_HOVER)
+            paint_play(CARD_HOVER)
         def on_leave(_):
             row.configure(bg=CARD)
             info.configure(bg=CARD)
-            title_row.configure(bg=CARD)
             title_label.configure(bg=CARD)
-            tag_label.configure(bg=CARD)
             cog.configure(bg=CARD)
-            play.configure(bg=CARD)
+            play_wrap.configure(bg=CARD)
+            paint_play(CARD)
         row.bind("<Enter>", on_enter)
         row.bind("<Leave>", on_leave)
         return row
