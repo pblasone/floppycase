@@ -31,7 +31,15 @@ gives every game a clickable desktop icon.
   `.desktop` launcher so a game is one click away from your Linux application
   menu.
 - **Friendly desktop app** – `easyamiga gui` opens a simple window that scans
-  your games folder and shows each game as a big "▶ Play" tile.
+  your games folder and shows each game as a big "▶ Play" tile, using the
+  **real game name** from the WHDLoad database (not the filename).
+- **Per-game settings & notes** – a cog on each tile opens a dialog to set
+  controls, window scale, fullscreen and a display filter, plus a free-text
+  **notes** field to remember what you worked out for a game. A global
+  **Settings** dialog sets the defaults for everything.
+- **Playable on a keyboard** – games launch with keyboard-as-joystick by
+  default (cursor keys + Left Ctrl to fire); switch to a gamepad or a different
+  layout per game or globally.
 
 ## Quick start
 
@@ -88,6 +96,22 @@ A1200); pass `--model` to override.
 
 Use `--base <dir>` (or the `EASYAMIGA_HOME` env var) to manage a setup somewhere
 other than `~/EasyAmiga`.
+
+## Tuning games (controls, display, notes)
+
+Click the cog on a game tile (or set global defaults from the toolbar
+**Settings** button) to adjust:
+
+- **Controls** – `keyboard-arrows` (cursor keys + Left Ctrl/Alt fire),
+  `keyboard-numpad`, or `gamepad` (use a detected USB controller).
+- **Fullscreen** and **Window scale** (1x/2x/3x).
+- **Filter** – `none` or a built-in `crt` shader.
+- **Notes** – free text saved per game, so you can jot down anything you
+  discovered about running it.
+
+These are stored in `~/EasyAmiga/library.json` and applied at launch as Amiberry
+options (`-J` for controls, `-s key=value` for display). A game's settings
+override the global defaults; leave a field on `default` to inherit.
 
 ## How model auto-configuration works
 
