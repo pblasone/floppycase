@@ -88,6 +88,34 @@ def test_launch_args_mapping(tmp_path):
     assert opts["gfx_center_vertical_position"] == "-4"
     assert opts["input_keyboard_as_joystick_stop_keypresses"] == "yes"
 
+    _, opts = library.launch_args(
+        {
+            "controls": "keyboard-arrows",
+            "fullscreen": False,
+            "scale": "2x",
+            "filter": "none",
+            "video_standard": "ntsc",
+            "line_mode": "double",
+            "vertical_offset": "-10",
+        },
+    )
+    assert opts["ntsc"] == "true"
+    assert opts["gfx_linemode"] == "double"
+    assert opts["amiberry.vertical_offset"] == "-10"
+
+    _, opts = library.launch_args(
+        {
+            "controls": "keyboard-arrows",
+            "fullscreen": False,
+            "scale": "2x",
+            "filter": "none",
+            "video_standard": "pal",
+            "line_mode": "single",
+        },
+    )
+    assert opts["ntsc"] == "false"
+    assert opts["gfx_linemode"] == "none"
+
     joy, opts = library.launch_args({"controls": "gamepad", "fullscreen": True, "scale": "2x", "filter": "crt"})
     assert joy is None
     assert "joyport1" not in opts

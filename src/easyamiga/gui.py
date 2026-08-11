@@ -28,6 +28,8 @@ CONTROL_CHOICES = list(library.CONTROL_LAYOUTS.keys()) + ["gamepad"]
 SCALE_CHOICES = ["1x", "2x", "3x"]
 FILTER_CHOICES = ["none", "crt"]
 SCREEN_CENTER_CHOICES = list(library.SCREEN_CENTER_CHOICES)
+VIDEO_STANDARD_CHOICES = list(library.VIDEO_STANDARD_CHOICES)
+LINE_MODE_CHOICES = list(library.LINE_MODE_CHOICES)
 CD32_PAD_CHOICES = list(library.CD32_PAD_CHOICES)
 STOP_KEYPRESS_CHOICES = list(library.STOP_KEYPRESS_CHOICES)
 
@@ -38,11 +40,13 @@ CARD = "#1e293b"
 CARD_HOVER = "#273449"
 ACCENT = "#ff2d2d"
 ACCENT_DK = "#b30000"
+PLAY_FG = "#34d399"  # minimal green play control
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
 INHERITED = "#64748b"  # weaker than MUTED for inherited per-game values
 
-ROW_H = 52
+ROW_H = 40
+ROW_BATCH = 30
 
 
 def _read_field(path: Path, key: str) -> Optional[str]:
@@ -78,6 +82,10 @@ class EasyAmigaGUI:
         self.roms_dir = install_mod.effective_roms_dir(self.paths)
         self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
         self._rows: list[tk.Widget] = []
+        self._row_by_stem: dict[str, tk.Widget] = {}
+        self._row_widgets: dict[str, dict] = {}
+        self._library_cache: dict | None = None
+        self._pending_configs: list[Path] = []
 
         self.root = tk.Tk()
         self.root.title("easyamiga")
@@ -182,9 +190,24 @@ class EasyAmigaGUI:
                     canvas.create_rectangle(x0, y0, x0 + step, y0 + step,
                                            fill="#ffffff", outline="")
 
+    # --- library cache (avoid re-reading library.json per row) ------------
+    def _invalidate_library_cache(self) -> None:
+        self._library_cache = None
+
+    def _library_data(self) -> dict:
+        if self._library_cache is None:
+            self._library_cache = library.load(self.paths)
+        return self._library_cache
+
+    def _get_game_cached(self, key: str) -> dict:
+        return dict(self._library_data().get("games", {}).get(key, {}))
+
+    def _sorted_configs(self) -> list[Path]:
+        return sorted(list_configs(self.paths), key=lambda p: self._title_for(p).lower())
+
     # --- behaviour ---------------------------------------------------------
     def _title_for(self, config_path: Path) -> str:
-        override = library.get_game(self.paths, config_path.stem).get("display_name")
+        override = self._get_game_cached(config_path.stem).get("display_name")
         return library.title_for(config_path.stem, override, self.db_by_name)
 
     def _current_rom(self, model_key: str) -> Optional[DetectedRom]:
@@ -427,16 +450,22 @@ class EasyAmigaGUI:
         center_v = tk.StringVar(value=d.get("screen_center_v", "default"))
         offset_h = tk.StringVar(value=d.get("screen_offset_h", "default"))
         offset_v = tk.StringVar(value=d.get("screen_offset_v", "default"))
+        video_std = tk.StringVar(value=d.get("video_standard", "default"))
+        line_mode = tk.StringVar(value=d.get("line_mode", "default"))
+        vert_off = tk.StringVar(value=d.get("vertical_offset", "default"))
 
         widgets = []
         self._section_label(body, "Display")
         widgets.append(self._dropdown(body, "Fullscreen", full, ["off", "on"]))
         widgets.append(self._dropdown(body, "Window scale", scale, SCALE_CHOICES))
         widgets.append(self._dropdown(body, "Filter", filt, FILTER_CHOICES))
+        widgets.append(self._dropdown(body, "Video standard", video_std, VIDEO_STANDARD_CHOICES))
+        widgets.append(self._dropdown(body, "Line mode", line_mode, LINE_MODE_CHOICES))
         widgets.append(self._dropdown(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES))
         widgets.append(self._dropdown(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES))
         widgets.append(self._entry_row(body, "Offset horizontal", offset_h))
         widgets.append(self._entry_row(body, "Offset vertical", offset_v))
+        widgets.append(self._entry_row(body, "Vertical offset", vert_off))
 
         self._section_label(body, "Input")
         widgets.append(self._dropdown(body, "Controls", controls, CONTROL_CHOICES, width=22))
@@ -456,9 +485,12 @@ class EasyAmigaGUI:
                 "screen_center_v": center_v.get(),
                 "screen_offset_h": offset_h.get().strip() or "default",
                 "screen_offset_v": offset_v.get().strip() or "default",
+                "video_standard": video_std.get(),
+                "line_mode": line_mode.get(),
+                "vertical_offset": vert_off.get().strip() or "default",
             })
+            self._invalidate_library_cache()
             win.destroy()
-            self.refresh()
 
         self._dialog_buttons(footer, save)
 
@@ -502,6 +534,9 @@ class EasyAmigaGUI:
         center_v = tk.StringVar(value=library.display_value(g, defaults, "screen_center_v"))
         offset_h = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_h"))
         offset_v = tk.StringVar(value=library.display_value(g, defaults, "screen_offset_v"))
+        video_std = tk.StringVar(value=library.display_value(g, defaults, "video_standard"))
+        line_mode = tk.StringVar(value=library.display_value(g, defaults, "line_mode"))
+        vert_off = tk.StringVar(value=library.display_value(g, defaults, "vertical_offset"))
 
         widgets = []
         self._section_label(body, "Display")
@@ -518,6 +553,14 @@ class EasyAmigaGUI:
             inherited=library.field_inherited(g, "filter"),
         ))
         widgets.append(self._dropdown(
+            body, "Video standard", video_std, list(VIDEO_STANDARD_CHOICES),
+            inherited=library.field_inherited(g, "video_standard"),
+        ))
+        widgets.append(self._dropdown(
+            body, "Line mode", line_mode, list(LINE_MODE_CHOICES),
+            inherited=library.field_inherited(g, "line_mode"),
+        ))
+        widgets.append(self._dropdown(
             body, "Center horizontal", center_h, list(SCREEN_CENTER_CHOICES),
             inherited=library.field_inherited(g, "screen_center_h"),
         ))
@@ -532,6 +575,10 @@ class EasyAmigaGUI:
         widgets.append(self._entry_row(
             body, "Offset vertical", offset_v,
             inherited=library.field_inherited(g, "screen_offset_v"),
+        ))
+        widgets.append(self._entry_row(
+            body, "Vertical offset", vert_off,
+            inherited=library.field_inherited(g, "vertical_offset"),
         ))
 
         self._section_label(body, "Input")
@@ -580,12 +627,22 @@ class EasyAmigaGUI:
                 "screen_offset_v": library.store_if_matches_global(
                     offset_v.get().strip(), defaults, "screen_offset_v",
                 ),
+                "video_standard": library.store_if_matches_global(
+                    video_std.get(), defaults, "video_standard",
+                ),
+                "line_mode": library.store_if_matches_global(
+                    line_mode.get(), defaults, "line_mode",
+                ),
+                "vertical_offset": library.store_if_matches_global(
+                    vert_off.get().strip(), defaults, "vertical_offset",
+                ),
                 "fullscreen_choice": fs_choice,
                 "fullscreen": fs_val,
             }
             library.set_game(self.paths, key, values)
+            self._invalidate_library_cache()
             win.destroy()
-            self.refresh()
+            self._update_row_after_save(config_path)
 
         self._dialog_buttons(footer, save)
 
@@ -605,11 +662,26 @@ class EasyAmigaGUI:
         for row in self._rows:
             row.destroy()
         self._rows = []
+        self._row_by_stem = {}
+        self._row_widgets = {}
+        self._invalidate_library_cache()
 
-        configs = sorted(list_configs(self.paths), key=lambda p: self._title_for(p).lower())
-        for config in configs:
+        self._pending_configs = self._sorted_configs()
+        if not self._pending_configs:
+            self._finish_refresh()
+            return
+        self._build_rows_batch(0)
+
+    def _build_rows_batch(self, start: int) -> None:
+        end = min(start + ROW_BATCH, len(self._pending_configs))
+        for config in self._pending_configs[start:end]:
             self._rows.append(self._make_row(config))
+        if end < len(self._pending_configs):
+            self.root.after(1, lambda: self._build_rows_batch(end))
+        else:
+            self._finish_refresh()
 
+    def _finish_refresh(self) -> None:
         n = len(self._rows)
         amiberry_ok = amiberry.is_installed()
         self.status.configure(
@@ -618,32 +690,70 @@ class EasyAmigaGUI:
         )
         self._update_amiberry_banner()
 
+    def _row_tag_text(self, config_path: Path) -> str:
+        chipset = (_read_field(config_path, "chipset") or "").upper()
+        parts: list[str] = []
+        if chipset:
+            parts.append(chipset)
+        if self._get_game_cached(config_path.stem).get("notes", ""):
+            parts.append("\u270e")
+        return "  " + "  ".join(parts) if parts else ""
+
+    def _update_row_after_save(self, config_path: Path) -> None:
+        stem = config_path.stem
+        widgets = self._row_widgets.get(stem)
+        if not widgets:
+            self.refresh()
+            return
+        widgets["title_label"].configure(text=self._title_for(config_path))
+        widgets["tag_label"].configure(text=self._row_tag_text(config_path))
+        self._repack_rows_sorted()
+
+    def _repack_rows_sorted(self) -> None:
+        for row in self._rows:
+            row.pack_forget()
+        for config in self._sorted_configs():
+            row = self._row_by_stem.get(config.stem)
+            if row is not None:
+                row.pack(fill="x", padx=8, pady=3)
+
     def _make_row(self, config_path: Path):
         tk = self.tk
+        stem = config_path.stem
         row = tk.Frame(self.list_frame, bg=CARD, height=ROW_H,
                        highlightbackground="#334155", highlightthickness=1)
         row.pack(fill="x", padx=8, pady=3)
         row.pack_propagate(False)
+        self._row_by_stem[stem] = row
 
         play = tk.Button(
-            row, text="\u25B6", command=lambda p=config_path: self.play(p),
-            bg=ACCENT, fg="#ffffff", activebackground=ACCENT_DK,
-            activeforeground="#ffffff", relief="flat", font=("Sans", 14, "bold"),
-            cursor="hand2", borderwidth=0, width=2, padx=6, pady=4,
+            row, text="\u25b8", command=lambda p=config_path: self.play(p),
+            bg=CARD, fg=PLAY_FG, activebackground=CARD_HOVER,
+            activeforeground=PLAY_FG, relief="flat", font=("Sans", 15),
+            cursor="hand2", borderwidth=0, width=2, padx=4, pady=2,
         )
-        play.pack(side="left", padx=(10, 12), pady=8)
+        play.pack(side="left", padx=(8, 10), pady=6)
 
         info = tk.Frame(row, bg=CARD)
-        info.pack(side="left", fill="both", expand=True, pady=8)
-        name = self._title_for(config_path)
-        tk.Label(info, text=name, bg=CARD, fg=TEXT, font=("Sans", 13, "bold"),
-                 anchor="w", justify="left").pack(anchor="w")
-        chipset = (_read_field(config_path, "chipset") or "").upper()
-        note = library.get_game(self.paths, config_path.stem).get("notes", "")
-        subtitle = chipset or "Amiga"
-        if note:
-            subtitle += "  \u270e"
-        tk.Label(info, text=subtitle, bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w")
+        info.pack(side="left", fill="both", expand=True, pady=6)
+        title_row = tk.Frame(info, bg=CARD)
+        title_row.pack(anchor="w", fill="x")
+        title_label = tk.Label(
+            title_row, text=self._title_for(config_path), bg=CARD, fg=TEXT,
+            font=("Sans", 13, "bold"), anchor="w", justify="left",
+        )
+        title_label.pack(side="left")
+        tag_label = tk.Label(
+            title_row, text=self._row_tag_text(config_path), bg=CARD, fg=MUTED,
+            font=("Sans", 10), anchor="w", justify="left",
+        )
+        tag_label.pack(side="left")
+        self._row_widgets[stem] = {
+            "title_label": title_label,
+            "tag_label": tag_label,
+            "info": info,
+            "cog": None,
+        }
 
         cog = tk.Button(
             row, text="\u2699", command=lambda p=config_path: self.open_game_settings(p),
@@ -652,6 +762,7 @@ class EasyAmigaGUI:
             padx=10, pady=4,
         )
         cog.pack(side="right", padx=(4, 10))
+        self._row_widgets[stem]["cog"] = cog
 
         for widget in (row, info, play):
             widget.bind("<Double-Button-1>", lambda e, p=config_path: self.play(p))
@@ -659,11 +770,19 @@ class EasyAmigaGUI:
         def on_enter(_):
             row.configure(bg=CARD_HOVER)
             info.configure(bg=CARD_HOVER)
+            title_row.configure(bg=CARD_HOVER)
+            title_label.configure(bg=CARD_HOVER)
+            tag_label.configure(bg=CARD_HOVER)
             cog.configure(bg=CARD_HOVER)
+            play.configure(bg=CARD_HOVER)
         def on_leave(_):
             row.configure(bg=CARD)
             info.configure(bg=CARD)
+            title_row.configure(bg=CARD)
+            title_label.configure(bg=CARD)
+            tag_label.configure(bg=CARD)
             cog.configure(bg=CARD)
+            play.configure(bg=CARD)
         row.bind("<Enter>", on_enter)
         row.bind("<Leave>", on_leave)
         return row

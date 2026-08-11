@@ -27,6 +27,10 @@ DEFAULT_SETTINGS: dict = {
   "screen_center_v": "default",
   "screen_offset_h": "default",   # default | pixel offset (integer string)
   "screen_offset_v": "default",
+  # Video timing / viewport (fixes cropped tops on some titles)
+  "video_standard": "default",    # default | pal | ntsc
+  "line_mode": "default",         # default | single | double (scanline height)
+  "vertical_offset": "default",   # default | pixels (amiberry.vertical_offset)
   # Input fine-tuning (mirrors Amiberry input / WHDLoad options)
   "cd32_pad": "default",          # default | on | off
   "stop_keypresses": "default",   # default | off | on
@@ -42,6 +46,8 @@ CONTROL_LAYOUTS: dict[str, str] = {
 }
 
 SCREEN_CENTER_CHOICES = ("default", "none", "simple", "smart")
+VIDEO_STANDARD_CHOICES = ("default", "pal", "ntsc")
+LINE_MODE_CHOICES = ("default", "single", "double")
 CD32_PAD_CHOICES = ("default", "on", "off")
 STOP_KEYPRESS_CHOICES = ("default", "off", "on")
 
@@ -190,6 +196,25 @@ def _apply_display_opts(eff: dict, opts: dict[str, str]) -> None:
                 opts[key] = str(int(str(raw).strip()))
             except ValueError:
                 pass
+
+    vs = eff.get("video_standard", "default")
+    if vs == "pal":
+        opts["ntsc"] = "false"
+    elif vs == "ntsc":
+        opts["ntsc"] = "true"
+
+    lm = eff.get("line_mode", "default")
+    if lm == "single":
+        opts["gfx_linemode"] = "none"
+    elif lm == "double":
+        opts["gfx_linemode"] = "double"
+
+    raw_vo = eff.get("vertical_offset", "default")
+    if raw_vo not in (None, "", "default"):
+        try:
+            opts["amiberry.vertical_offset"] = str(int(str(raw_vo).strip()))
+        except ValueError:
+            pass
 
 
 def _want_cd32_pad(eff: dict, hardware: dict | None) -> bool:
