@@ -46,16 +46,47 @@ def test_launch_args_mapping(tmp_path):
     assert "gfx_fullscreen" not in opts
     assert "joyport1mode" not in opts
 
-    joy, opts = library.launch_args(
+    _, opts = library.launch_args(
         {"controls": "keyboard-numpad", "fullscreen": False, "scale": "2x", "filter": "none"}
     )
     assert opts["joyport1"] == "kbd1"
 
-    joy, opts = library.launch_args(
+    _, opts = library.launch_args(
         {"controls": "keyboard-arrows", "fullscreen": False, "scale": "2x", "filter": "none"},
         hardware={"port0": "cd32", "port1": "cd32"},
     )
     assert opts["joyport1mode"] == "cd32joy"
+
+    _, opts = library.launch_args(
+        {
+            "controls": "keyboard-arrows",
+            "fullscreen": False,
+            "scale": "2x",
+            "filter": "none",
+            "cd32_pad": "off",
+        },
+        hardware={"port0": "cd32", "port1": "cd32"},
+    )
+    assert opts["joyport1mode"] == "djoy"
+
+    _, opts = library.launch_args(
+        {
+            "controls": "keyboard-arrows",
+            "fullscreen": False,
+            "scale": "2x",
+            "filter": "none",
+            "screen_center_h": "smart",
+            "screen_center_v": "none",
+            "screen_offset_h": "12",
+            "screen_offset_v": "-4",
+            "stop_keypresses": "on",
+        },
+    )
+    assert opts["gfx_center_horizontal"] == "smart"
+    assert opts["gfx_center_vertical"] == "none"
+    assert opts["gfx_center_horizontal_position"] == "12"
+    assert opts["gfx_center_vertical_position"] == "-4"
+    assert opts["input_keyboard_as_joystick_stop_keypresses"] == "yes"
 
     joy, opts = library.launch_args({"controls": "gamepad", "fullscreen": True, "scale": "2x", "filter": "crt"})
     assert joy is None

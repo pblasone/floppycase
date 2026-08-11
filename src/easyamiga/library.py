@@ -18,11 +18,32 @@ LIBRARY_FILE = "library.json"
 
 #: Global default launch settings (also the shape of a per-game override).
 DEFAULT_SETTINGS: dict = {
-    "controls": "keyboard-arrows",  # keyboard-arrows | keyboard-numpad | gamepad
-    "fullscreen": False,
-    "scale": "2x",                  # 1x | 2x | 3x
-    "filter": "none",               # none | crt
+  "controls": "keyboard-arrows",  # see CONTROL_LAYOUTS
+  "fullscreen": False,
+  "scale": "2x",                  # 1x | 2x | 3x
+  "filter": "none",               # none | crt
+  # Display alignment (``default`` = leave WHDLoad / Amiberry booter values)
+  "screen_center_h": "default",   # default | none | simple | smart
+  "screen_center_v": "default",
+  "screen_offset_h": "default",   # default | pixel offset (integer string)
+  "screen_offset_v": "default",
+  # Input fine-tuning (mirrors Amiberry input / WHDLoad options)
+  "cd32_pad": "default",          # default | on | off
+  "stop_keypresses": "default",   # default | off | on
 }
+
+#: Amiberry keyboard-as-joystick layouts (``joyportN=kbd*``).
+CONTROL_LAYOUTS: dict[str, str] = {
+    "keyboard-arrows": "kbd4",         # Keyrah: cursor + Space / RAlt fire
+    "keyboard-arrows-lctrl": "kbd9",   # Layout D: cursor + LCtrl/LAlt fire
+    "keyboard-arrows-rctrl": "kbd2",   # Layout B: cursor + RCtrl/RAlt fire
+    "keyboard-wasd": "kbd3",           # Layout C: WASAD + LAlt fire
+    "keyboard-numpad": "kbd1",         # Layout A: numpad + 0/5 fire
+}
+
+SCREEN_CENTER_CHOICES = ("default", "none", "simple", "smart")
+CD32_PAD_CHOICES = ("default", "on", "off")
+STOP_KEYPRESS_CHOICES = ("default", "off", "on")
 
 #: PAL-ish base resolution used to compute integer window scales.
 _BASE_W, _BASE_H = 720, 568
@@ -105,22 +126,6 @@ def title_for(stem: str, override_name: str | None, db_by_name: dict | None) -> 
 
 
 # --- settings -> Amiberry launch options --------------------------------------
-#: Amiberry ``joyportN=kbd*`` assignments (see Amiberry Input panel / cfgfile).
-_KEYBOARD_JOYPORT = {
-    # Keyrah layout: cursor keys + Space/Right Alt fire (matches many WHDLoad packs).
-    "keyboard-arrows": "kbd4",
-    # Layout A: numpad directions + 0/5 fire.
-    "keyboard-numpad": "kbd1",
-}
-
-#: Applied for keyboard play so focus changes and key-as-joystick do not block input.
-_KEYBOARD_HOST_OPTS = {
-    "inactive_pause": "false",
-    "active_not_captured_pause": "false",
-    "input_keyboard_as_joystick_stop_keypresses": "no",
-}
-
-
 def hardware_from_db(stem: str, db_by_name: dict | None) -> dict | None:
     """Return WHDLoad ``hardware`` metadata for a game archive stem, if known."""
     if not db_by_name:
@@ -139,16 +144,50 @@ def needs_cd32_joystick_mode(hardware: dict | None) -> bool:
     return hardware.get("port0") == "cd32" or hardware.get("port1") == "cd32"
 
 
+def _apply_display_opts(eff: dict, opts: dict[str, str]) -> None:
+    h = eff.get("screen_center_h", "default")
+    if h in ("none", "simple", "smart"):
+        opts["gfx_center_horizontal"] = h
+    v = eff.get("screen_center_v", "default")
+    if v in ("none", "simple", "smart"):
+        opts["gfx_center_vertical"] = v
+    for field, key in (
+        ("screen_offset_h", "gfx_center_horizontal_position"),
+        ("screen_offset_v", "gfx_center_vertical_position"),
+    ):
+        raw = eff.get(field, "default")
+        if raw not in (None, "", "default"):
+            try:
+                opts[key] = str(int(str(raw).strip()))
+            except ValueError:
+                pass
+
+
+def _want_cd32_pad(eff: dict, hardware: dict | None) -> bool:
+    mode = eff.get("cd32_pad", "default")
+    if mode == "on":
+        return True
+    if mode == "off":
+        return False
+    return needs_cd32_joystick_mode(hardware)
+
+
+def _stop_keypresses_value(eff: dict) -> str:
+    val = eff.get("stop_keypresses", "default")
+    if val == "on":
+        return "yes"
+    return "no"  # default and off both allow keys through to the Amiga
+
+
 def launch_args(
     eff: dict,
     hardware: dict | None = None,
 ) -> tuple[None, dict[str, str]]:
     """Return launch options for ``-s key=value`` (joyports tuple is always ``None``).
 
-  Keyboard controls are applied via ``joyport0`` / ``joyport1`` *after* WHDLoad
-  auto-boot so they override the booter's default ``joy1`` assignment. CD32
-  titles also get ``joyport1mode=cd32joy`` so Amiberry maps keys to CD32
-  buttons (red/green/…) instead of a plain joystick fire bit.
+    Keyboard controls are applied via ``joyport0`` / ``joyport1`` *after* WHDLoad
+    auto-boot so they override the booter's default ``joy1`` assignment. CD32
+    titles also get ``joyport1mode=cd32joy`` unless overridden in library settings.
     """
     opts: dict[str, str] = {}
     if eff.get("fullscreen"):
@@ -162,17 +201,20 @@ def launch_args(
             opts["gfx_correct_aspect"] = "true"
     if eff.get("filter") == "crt":
         opts["shader"] = "crt"
+    _apply_display_opts(eff, opts)
 
     controls = eff.get("controls", "keyboard-arrows")
-    if controls == "gamepad":
-        return None, opts
-
-    kbd = _KEYBOARD_JOYPORT.get(controls, _KEYBOARD_JOYPORT["keyboard-arrows"])
-    opts.update(_KEYBOARD_HOST_OPTS)
-    # Joyport overrides last so they win over any WHDLoad cached ``.uae`` config.
-    opts["joyport0"] = "mouse"
-    opts["joyport1"] = kbd
-    opts["joyport1keyboardoverride"] = "yes"
-    if needs_cd32_joystick_mode(hardware):
-        opts["joyport1mode"] = "cd32joy"
+    if controls != "gamepad":
+        kbd = CONTROL_LAYOUTS.get(controls, CONTROL_LAYOUTS["keyboard-arrows"])
+        opts["inactive_pause"] = "false"
+        opts["active_not_captured_pause"] = "false"
+        opts["input_keyboard_as_joystick_stop_keypresses"] = _stop_keypresses_value(eff)
+        # Joyport overrides last so they win over any WHDLoad cached ``.uae`` config.
+        opts["joyport0"] = "mouse"
+        opts["joyport1"] = kbd
+        opts["joyport1keyboardoverride"] = "yes"
+        if _want_cd32_pad(eff, hardware):
+            opts["joyport1mode"] = "cd32joy"
+        elif eff.get("cd32_pad") == "off":
+            opts["joyport1mode"] = "djoy"
     return None, opts

@@ -30,9 +30,8 @@ gives every game a clickable desktop icon.
 - **Clickable game icons** – `easyamiga add-game` creates a freedesktop
   `.desktop` launcher so a game is one click away from your Linux application
   menu.
-- **Friendly desktop app** – `easyamiga gui` opens a simple window that scans
-  your games folder and shows each game as a big "▶ Play" tile, using the
-  **real game name** from the WHDLoad database (not the filename).
+- **Friendly desktop app** – `easyamiga gui` opens a scrollable alphabetical list
+  of your games; click the play icon (or double-click a row) to launch.
 - **Per-game settings & notes** – a cog on each tile opens a dialog to set
   controls, window scale, fullscreen and a display filter, plus a free-text
   **notes** field to remember what you worked out for a game. A global
@@ -99,20 +98,25 @@ other than `~/EasyAmiga`.
 
 ## Tuning games (controls, display, notes)
 
-Click the cog on a game tile (or set global defaults from the toolbar
+Click the cog on a game row (or set global defaults from the toolbar
 **Settings** button) to adjust:
 
-- **Controls** – `keyboard-arrows` (cursor keys + Space fire; CD32 titles get
-  the matching CD32 keyboard map automatically), `keyboard-numpad`, or `gamepad`
-  (use a detected USB controller).
-- **Fullscreen** and **Window scale** (1x/2x/3x).
-- **Filter** – `none` or a built-in `crt` shader.
-- **Notes** – free text saved per game, so you can jot down anything you
-  discovered about running it.
+- **Controls** – keyboard layouts matching Amiberry (arrows + Space, arrows +
+  Left Ctrl, WASD, numpad, or gamepad). CD32 pad mode can be forced on/off when
+  auto-detection is wrong.
+- **Display** – fullscreen, window scale, CRT filter, horizontal/vertical
+  centering (`none` / `simple` / `smart`), and pixel offsets when the picture
+  looks misaligned in the viewport.
+- **Input** – block duplicate keypresses (Amiberry's keyboard-as-joystick option).
+- **Notes** – free text saved per game.
+
+WHDLoad games pick CPU, chipset and RAM from the WHDLoad database at boot; you do
+not need to choose A500 vs A1200 manually. Scan/add still writes a local config
+for metadata, using the best Kickstart ROM you have installed.
 
 These are stored in `~/EasyAmiga/library.json` and applied at launch as Amiberry
-``-s key=value`` options (joyports, display, pause behaviour). A game's settings
-override the global defaults; leave a field on `default` to inherit.
+``-s key=value`` options. A game's settings override the global defaults; leave
+a field on `default` to inherit or let the WHDLoad booter decide.
 
 ## How model auto-configuration works
 

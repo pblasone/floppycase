@@ -1,9 +1,6 @@
 """A simple, friendly desktop GUI for easyamiga.
 
-The window scans the games folder and shows each game as a big, clickable
-"Play" tile. It's intentionally simple so it's usable by kids and adults alike:
-open it, and your games are there to click.
-
+The window scans the games folder and shows each game in an alphabetical list.
 Built with Tkinter so it has no extra Python dependencies (it only needs the
 system ``python3-tk`` package, which ``easyamiga install`` sets up).
 """
@@ -23,13 +20,16 @@ from .games import (
     resolve_launch,
     scan_games,
 )
-from .models import DEFAULT_MODEL, MODELS, get_model
+from .models import DEFAULT_MODEL, get_model
 from .paths import Paths
 from .roms import DetectedRom, default_model_key, detect_roms, pick_rom_for_model
 
-CONTROL_CHOICES = ["keyboard-arrows", "keyboard-numpad", "gamepad"]
+CONTROL_CHOICES = list(library.CONTROL_LAYOUTS.keys()) + ["gamepad"]
 SCALE_CHOICES = ["1x", "2x", "3x"]
 FILTER_CHOICES = ["none", "crt"]
+SCREEN_CENTER_CHOICES = list(library.SCREEN_CENTER_CHOICES)
+CD32_PAD_CHOICES = list(library.CD32_PAD_CHOICES)
+STOP_KEYPRESS_CHOICES = list(library.STOP_KEYPRESS_CHOICES)
 
 # Palette (Amiga-ish dark blue with a boing-ball red accent)
 BG = "#0f172a"
@@ -41,8 +41,7 @@ ACCENT_DK = "#b30000"
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
 
-CARD_W = 250
-CARD_H = 150
+ROW_H = 52
 
 
 def _read_field(path: Path, key: str) -> Optional[str]:
@@ -77,8 +76,7 @@ class EasyAmigaGUI:
         self.paths.ensure()
         self.roms_dir = install_mod.effective_roms_dir(self.paths)
         self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
-        self._cards: list[tk.Widget] = []
-        self._columns = 3
+        self._rows: list[tk.Widget] = []
 
         self.root = tk.Tk()
         self.root.title("easyamiga")
@@ -88,7 +86,7 @@ class EasyAmigaGUI:
 
         self._build_header()
         self._build_toolbar()
-        self._build_grid()
+        self._build_list()
         self._build_statusbar()
 
         # Auto-scan on open so games appear with zero effort.
@@ -112,21 +110,13 @@ class EasyAmigaGUI:
         tk.Label(text, text="Click a game to play it on your Amiga",
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
 
+    def _default_model(self) -> str:
+        return default_model_key(detect_roms(self.roms_dir), DEFAULT_MODEL)
+
     def _build_toolbar(self) -> None:
         tk = self.tk
         bar = tk.Frame(self.root, bg=BG)
         bar.pack(fill="x", padx=18, pady=(6, 10))
-
-        tk.Label(bar, text="Machine:", bg=BG, fg=MUTED,
-                 font=("Sans", 10)).pack(side="left")
-        default_model = default_model_key(detect_roms(self.roms_dir), DEFAULT_MODEL)
-        self.model_var = tk.StringVar(value=default_model)
-        model_menu = tk.OptionMenu(bar, self.model_var, *MODELS.keys())
-        model_menu.configure(bg=CARD, fg=TEXT, activebackground=CARD_HOVER,
-                             activeforeground=TEXT, highlightthickness=0,
-                             relief="flat", font=("Sans", 10), width=7)
-        model_menu["menu"].configure(bg=CARD, fg=TEXT)
-        model_menu.pack(side="left", padx=(6, 16))
 
         self._toolbar_button(bar, "\u21bb  Scan games folder", self.do_scan)
         self._toolbar_button(bar, "+  Add game file", self.add_file)
@@ -143,7 +133,7 @@ class EasyAmigaGUI:
         btn.pack(side="left", padx=4)
         return btn
 
-    def _build_grid(self) -> None:
+    def _build_list(self) -> None:
         tk = self.tk
         container = tk.Frame(self.root, bg=CONTENT_BG)
         container.pack(fill="both", expand=True, padx=10, pady=4)
@@ -154,15 +144,15 @@ class EasyAmigaGUI:
         self.canvas = tk.Canvas(container, bg=CONTENT_BG, highlightthickness=0)
         self.scroll = self.ttk.Scrollbar(container, orient="vertical",
                                          command=self.canvas.yview)
-        self.grid_frame = tk.Frame(self.canvas, bg=CONTENT_BG)
-        self._grid_window = self.canvas.create_window((0, 0), window=self.grid_frame,
-                                                      anchor="nw")
+        self.list_frame = tk.Frame(self.canvas, bg=CONTENT_BG)
+        self._list_window = self.canvas.create_window((0, 0), window=self.list_frame,
+                                                       anchor="nw")
         self.canvas.configure(yscrollcommand=self.scroll.set)
 
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scroll.pack(side="right", fill="y")
 
-        self.grid_frame.bind(
+        self.list_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
@@ -201,7 +191,7 @@ class EasyAmigaGUI:
     def do_scan(self, announce: bool = True) -> None:
         from tkinter import messagebox
 
-        model = get_model(self.model_var.get())
+        model = get_model(self._default_model())
         rom = self._current_rom(model.key)
         pruned = prune_orphans(self.paths)  # drop games whose files were deleted
         games = scan_games(self.paths, model, rom=rom, roms_dir=self.roms_dir, prune=False)
@@ -237,7 +227,7 @@ class EasyAmigaGUI:
     def _add_and_refresh(self, source: Path) -> None:
         from tkinter import messagebox
 
-        model = get_model(self.model_var.get())
+        model = get_model(self._default_model())
         rom = self._current_rom(model.key)
         try:
             game = add_game(self.paths, source, model, rom=rom, roms_dir=self.roms_dir)
@@ -280,7 +270,7 @@ class EasyAmigaGUI:
             messagebox.showerror("Could not launch game", str(exc))
 
     # --- settings dialogs --------------------------------------------------
-    def _dropdown(self, parent, label, var, choices):
+    def _dropdown(self, parent, label, var, choices, width=16):
         tk = self.tk
         row = tk.Frame(parent, bg=CARD)
         row.pack(fill="x", pady=4)
@@ -288,7 +278,7 @@ class EasyAmigaGUI:
                  anchor="w").pack(side="left")
         menu = tk.OptionMenu(row, var, *choices)
         menu.configure(bg=BG, fg=TEXT, activebackground=CARD_HOVER, activeforeground=TEXT,
-                       highlightthickness=0, relief="flat", font=("Sans", 10), width=16)
+                       highlightthickness=0, relief="flat", font=("Sans", 10), width=width)
         menu["menu"].configure(bg=BG, fg=TEXT)
         menu.pack(side="left")
 
@@ -301,14 +291,28 @@ class EasyAmigaGUI:
         win.transient(self.root)
         return win
 
+    def _entry_row(self, parent, label, var, width=10):
+        tk = self.tk
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", pady=4)
+        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=18,
+                 anchor="w").pack(side="left")
+        tk.Entry(row, textvariable=var, bg=BG, fg=TEXT, insertbackground=TEXT,
+                 relief="flat", font=("Sans", 10), width=width).pack(side="left")
+
+    def _section_label(self, parent, text):
+        tk = self.tk
+        tk.Label(parent, text=text, bg=CARD, fg=TEXT, font=("Sans", 11, "bold")).pack(
+            anchor="w", pady=(10, 4))
+
     def open_default_settings(self) -> None:
         tk = self.tk
         d = library.get_defaults(self.paths)
-        win = self._new_dialog("Default settings (all games)", height=340)
+        win = self._new_dialog("Default settings (all games)", height=560)
         tk.Label(win, text="Default settings", bg=CARD, fg=TEXT,
                  font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(14, 2))
-        tk.Label(win, text="Applied to every game unless overridden.", bg=CARD, fg=MUTED,
-                 font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 8))
+        tk.Label(win, text="Applied to every game unless overridden per game.",
+                 bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 8))
         body = tk.Frame(win, bg=CARD)
         body.pack(fill="x", padx=16)
 
@@ -316,10 +320,26 @@ class EasyAmigaGUI:
         scale = tk.StringVar(value=d["scale"])
         filt = tk.StringVar(value=d["filter"])
         full = tk.StringVar(value="on" if d["fullscreen"] else "off")
-        self._dropdown(body, "Controls", controls, CONTROL_CHOICES)
+        cd32 = tk.StringVar(value=d.get("cd32_pad", "default"))
+        stop_kp = tk.StringVar(value=d.get("stop_keypresses", "default"))
+        center_h = tk.StringVar(value=d.get("screen_center_h", "default"))
+        center_v = tk.StringVar(value=d.get("screen_center_v", "default"))
+        offset_h = tk.StringVar(value=d.get("screen_offset_h", "default"))
+        offset_v = tk.StringVar(value=d.get("screen_offset_v", "default"))
+
+        self._section_label(body, "Display")
         self._dropdown(body, "Fullscreen", full, ["off", "on"])
         self._dropdown(body, "Window scale", scale, SCALE_CHOICES)
         self._dropdown(body, "Filter", filt, FILTER_CHOICES)
+        self._dropdown(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES)
+        self._dropdown(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES)
+        self._entry_row(body, "Offset horizontal", offset_h)
+        self._entry_row(body, "Offset vertical", offset_v)
+
+        self._section_label(body, "Input")
+        self._dropdown(body, "Controls", controls, CONTROL_CHOICES, width=22)
+        self._dropdown(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES)
+        self._dropdown(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES)
 
         def save():
             library.set_defaults(self.paths, {
@@ -327,6 +347,12 @@ class EasyAmigaGUI:
                 "fullscreen": full.get() == "on",
                 "scale": scale.get(),
                 "filter": filt.get(),
+                "cd32_pad": cd32.get(),
+                "stop_keypresses": stop_kp.get(),
+                "screen_center_h": center_h.get(),
+                "screen_center_v": center_v.get(),
+                "screen_offset_h": offset_h.get().strip() or "default",
+                "screen_offset_v": offset_v.get().strip() or "default",
             })
             win.destroy()
             self.refresh()
@@ -338,7 +364,7 @@ class EasyAmigaGUI:
         key = config_path.stem
         g = library.get_game(self.paths, key)
         real = library.title_for(key, None, self.db_by_name)
-        win = self._new_dialog(f"Settings - {real}")
+        win = self._new_dialog(f"Settings - {real}", height=620)
 
         tk.Label(win, text=real, bg=CARD, fg=TEXT, font=("Sans", 14, "bold"),
                  wraplength=400, justify="left").pack(anchor="w", padx=16, pady=(14, 0))
@@ -359,10 +385,26 @@ class EasyAmigaGUI:
         full = tk.StringVar(value=g.get("fullscreen_choice", "default"))
         scale = tk.StringVar(value=g.get("scale", "default"))
         filt = tk.StringVar(value=g.get("filter", "default"))
-        self._dropdown(body, "Controls", controls, ["default"] + CONTROL_CHOICES)
+        cd32 = tk.StringVar(value=g.get("cd32_pad", "default"))
+        stop_kp = tk.StringVar(value=g.get("stop_keypresses", "default"))
+        center_h = tk.StringVar(value=g.get("screen_center_h", "default"))
+        center_v = tk.StringVar(value=g.get("screen_center_v", "default"))
+        offset_h = tk.StringVar(value=g.get("screen_offset_h", "default"))
+        offset_v = tk.StringVar(value=g.get("screen_offset_v", "default"))
+
+        self._section_label(body, "Display")
         self._dropdown(body, "Fullscreen", full, ["default", "off", "on"])
         self._dropdown(body, "Window scale", scale, ["default"] + SCALE_CHOICES)
         self._dropdown(body, "Filter", filt, ["default"] + FILTER_CHOICES)
+        self._dropdown(body, "Center horizontal", center_h, ["default"] + SCREEN_CENTER_CHOICES[1:])
+        self._dropdown(body, "Center vertical", center_v, ["default"] + SCREEN_CENTER_CHOICES[1:])
+        self._entry_row(body, "Offset horizontal", offset_h)
+        self._entry_row(body, "Offset vertical", offset_v)
+
+        self._section_label(body, "Input")
+        self._dropdown(body, "Controls", controls, ["default"] + CONTROL_CHOICES, width=22)
+        self._dropdown(body, "CD32 pad mode", cd32, ["default"] + CD32_PAD_CHOICES[1:])
+        self._dropdown(body, "Block key dupes", stop_kp, ["default"] + STOP_KEYPRESS_CHOICES[1:])
 
         tk.Label(win, text="Notes", bg=CARD, fg=MUTED, font=("Sans", 10)).pack(
             anchor="w", padx=16, pady=(8, 0))
@@ -378,6 +420,12 @@ class EasyAmigaGUI:
                 "controls": controls.get(),
                 "scale": scale.get(),
                 "filter": filt.get(),
+                "cd32_pad": cd32.get(),
+                "stop_keypresses": stop_kp.get(),
+                "screen_center_h": center_h.get(),
+                "screen_center_v": center_v.get(),
+                "screen_offset_h": offset_h.get().strip() or "default",
+                "screen_offset_v": offset_v.get().strip() or "default",
                 "fullscreen_choice": full.get(),
             }
             # Translate the tri-state fullscreen choice into the effective setting.
@@ -408,15 +456,15 @@ class EasyAmigaGUI:
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:
-        for card in self._cards:
-            card.destroy()
-        self._cards = []
+        for row in self._rows:
+            row.destroy()
+        self._rows = []
 
-        for config in list_configs(self.paths):
-            self._cards.append(self._make_card(config))
-        self._reflow()
+        configs = sorted(list_configs(self.paths), key=lambda p: self._title_for(p).lower())
+        for config in configs:
+            self._rows.append(self._make_row(config))
 
-        n = len(self._cards)
+        n = len(self._rows)
         amiberry_ok = amiberry.is_installed()
         self.status.configure(
             text=f"{n} game(s)  \u2022  games folder: {self.paths.games}  \u2022  "
@@ -424,66 +472,58 @@ class EasyAmigaGUI:
         )
         self._update_amiberry_banner()
 
-    def _make_card(self, config_path: Path):
+    def _make_row(self, config_path: Path):
         tk = self.tk
-        card = tk.Frame(self.grid_frame, bg=CARD, width=CARD_W, height=CARD_H,
-                        highlightbackground="#334155", highlightthickness=1)
-        card.pack_propagate(False)
+        row = tk.Frame(self.list_frame, bg=CARD, height=ROW_H,
+                       highlightbackground="#334155", highlightthickness=1)
+        row.pack(fill="x", padx=8, pady=3)
+        row.pack_propagate(False)
 
-        top = tk.Frame(card, bg=CARD)
-        top.pack(fill="x", padx=12, pady=(10, 4))
-        badge = tk.Canvas(top, width=34, height=34, bg=CARD, highlightthickness=0)
-        badge.pack(side="left")
-        self._draw_boing(badge, 17, 17, 14)
+        play = tk.Button(
+            row, text="\u25B6", command=lambda p=config_path: self.play(p),
+            bg=ACCENT, fg="#ffffff", activebackground=ACCENT_DK,
+            activeforeground="#ffffff", relief="flat", font=("Sans", 14, "bold"),
+            cursor="hand2", borderwidth=0, width=2, padx=6, pady=4,
+        )
+        play.pack(side="left", padx=(10, 12), pady=8)
 
-        # Per-game settings (cog) button, top-right.
-        cog = tk.Button(top, text="\u2699", command=lambda p=config_path: self.open_game_settings(p),
-                        bg=CARD, fg=MUTED, activebackground=CARD_HOVER, activeforeground=TEXT,
-                        relief="flat", font=("Sans", 12), cursor="hand2", borderwidth=0,
-                        padx=4, pady=0)
-        cog.pack(side="right", anchor="n")
-
+        info = tk.Frame(row, bg=CARD)
+        info.pack(side="left", fill="both", expand=True, pady=8)
         name = self._title_for(config_path)
-        info = tk.Frame(top, bg=CARD)
-        info.pack(side="left", fill="x", padx=8)
-        tk.Label(info, text=name, bg=CARD, fg=TEXT, font=("Sans", 12, "bold"),
-                 anchor="w", justify="left", wraplength=140).pack(anchor="w")
+        tk.Label(info, text=name, bg=CARD, fg=TEXT, font=("Sans", 13, "bold"),
+                 anchor="w", justify="left").pack(anchor="w")
         chipset = (_read_field(config_path, "chipset") or "").upper()
         note = library.get_game(self.paths, config_path.stem).get("notes", "")
         subtitle = chipset or "Amiga"
         if note:
-            subtitle += "  \u270e"  # pencil marker: has notes
-        tk.Label(info, text=subtitle, bg=CARD, fg=MUTED,
-                 font=("Sans", 9)).pack(anchor="w")
+            subtitle += "  \u270e"
+        tk.Label(info, text=subtitle, bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w")
 
-        play = tk.Button(card, text="\u25B6  Play", command=lambda p=config_path: self.play(p),
-                         bg=ACCENT, fg="#ffffff", activebackground=ACCENT_DK,
-                         activeforeground="#ffffff", relief="flat",
-                         font=("Sans", 12, "bold"), cursor="hand2", borderwidth=0)
-        play.pack(side="bottom", fill="x", padx=12, pady=12)
+        cog = tk.Button(
+            row, text="\u2699", command=lambda p=config_path: self.open_game_settings(p),
+            bg=CARD, fg=MUTED, activebackground=CARD_HOVER, activeforeground=TEXT,
+            relief="flat", font=("Sans", 14), cursor="hand2", borderwidth=0,
+            padx=10, pady=4,
+        )
+        cog.pack(side="right", padx=(4, 10))
 
-        for widget in (card, top, info, badge):
+        for widget in (row, info, play):
             widget.bind("<Double-Button-1>", lambda e, p=config_path: self.play(p))
 
         def on_enter(_):
-            card.configure(bg=CARD_HOVER)
+            row.configure(bg=CARD_HOVER)
+            info.configure(bg=CARD_HOVER)
+            cog.configure(bg=CARD_HOVER)
         def on_leave(_):
-            card.configure(bg=CARD)
-        card.bind("<Enter>", on_enter)
-        card.bind("<Leave>", on_leave)
-        return card
-
-    def _reflow(self) -> None:
-        for i, card in enumerate(self._cards):
-            r, c = divmod(i, max(1, self._columns))
-            card.grid(row=r, column=c, padx=10, pady=10, sticky="nw")
+            row.configure(bg=CARD)
+            info.configure(bg=CARD)
+            cog.configure(bg=CARD)
+        row.bind("<Enter>", on_enter)
+        row.bind("<Leave>", on_leave)
+        return row
 
     def _on_canvas_configure(self, event) -> None:
-        self.canvas.itemconfigure(self._grid_window, width=event.width)
-        cols = max(1, event.width // (CARD_W + 20))
-        if cols != self._columns:
-            self._columns = cols
-            self._reflow()
+        self.canvas.itemconfigure(self._list_window, width=event.width)
 
     def _on_scroll(self, event) -> None:
         if getattr(event, "num", None) == 4 or getattr(event, "delta", 0) > 0:
