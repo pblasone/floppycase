@@ -41,12 +41,12 @@ CARD = "#1e293b"
 CARD_HOVER = "#273449"
 ACCENT = "#ff2d2d"
 ACCENT_DK = "#b30000"
-PLAY_FG = "#34d399"  # minimal green play control
-PLAY_RING = "#2dd4bf"
-PLAY_FILL = "#134e4a"
+PLAY_FG = "#ecfdf5"  # play icon on green circle
+PLAY_FILL = "#22c55e"  # bright green, no border ring
 SAVE_BG = "#10b981"
 SAVE_HOVER = "#059669"
 FIELD_BG = "#0b1220"
+DIALOG_SEP = "#334155"
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
 INHERITED = "#64748b"  # weaker than MUTED for inherited per-game values
@@ -55,6 +55,7 @@ ROW_H = 38
 ROW_BATCH = 30
 INPUT_H = 30
 LABEL_W = 18
+PLAY_SIZE = 26
 SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -150,6 +151,23 @@ class EasyAmigaGUI:
             fieldbackground=[("readonly", FIELD_BG)],
             foreground=[("readonly", INHERITED)],
         )
+        scroll_base = {
+            "background": CARD_HOVER,
+            "troughcolor": FIELD_BG,
+            "bordercolor": FIELD_BG,
+            "arrowcolor": MUTED,
+            "lightcolor": CARD_HOVER,
+            "darkcolor": CARD_HOVER,
+            "borderwidth": 0,
+            "relief": "flat",
+            "gripcount": 0,
+        }
+        style.configure("Ea.Vertical.TScrollbar", **scroll_base)
+        style.map(
+            "Ea.Vertical.TScrollbar",
+            background=[("active", MUTED), ("pressed", TEXT)],
+        )
+
     def _build_header(self) -> None:
         tk = self.tk
         header = tk.Frame(self.root, bg=BG)
@@ -396,19 +414,25 @@ class EasyAmigaGUI:
         tk = self.tk
         footer = tk.Frame(win, bg=CARD)
         footer.pack(side="bottom", fill="x", padx=16, pady=12)
+        tk.Frame(win, bg=DIALOG_SEP, height=1).pack(side="bottom", fill="x", padx=16)
         main = tk.Frame(win, bg=CARD)
         main.pack(fill="both", expand=True)
         return main, footer
 
-    def _scrollable_body(self, parent) -> tk.Frame:
-        """Scrollable inner frame for long settings forms."""
+    def _scrollable_body(self, parent) -> tuple:
+        """Scrollable inner frame; returns ``(body, canvas)`` for wheel binding."""
         tk, ttk = self.tk, self.ttk
-        outer = tk.Frame(parent, bg=CARD)
-        outer.pack(fill="both", expand=True, padx=16, pady=(0, 4))
+        zone = tk.Frame(parent, bg=FIELD_BG)
+        zone.pack(fill="both", expand=True, padx=16, pady=(8, 8))
 
-        canvas = tk.Canvas(outer, bg=CARD, highlightthickness=0)
-        scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        body = tk.Frame(canvas, bg=CARD)
+        outer = tk.Frame(zone, bg=FIELD_BG)
+        outer.pack(fill="both", expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(outer, bg=FIELD_BG, highlightthickness=0, bd=0)
+        scroll = ttk.Scrollbar(
+            outer, orient="vertical", command=canvas.yview, style="Ea.Vertical.TScrollbar",
+        )
+        body = tk.Frame(canvas, bg=FIELD_BG)
         body_id = canvas.create_window((0, 0), window=body, anchor="nw")
         canvas.configure(yscrollcommand=scroll.set)
 
@@ -426,24 +450,42 @@ class EasyAmigaGUI:
                 canvas.yview_scroll(-1, "units")
             elif getattr(event, "num", None) == 5 or getattr(event, "delta", 0) < 0:
                 canvas.yview_scroll(1, "units")
+            return "break"
 
         canvas.bind("<MouseWheel>", _wheel)
         canvas.bind("<Button-4>", _wheel)
         canvas.bind("<Button-5>", _wheel)
 
-        canvas.pack(side="left", fill="both", expand=True)
+        canvas.pack(side="left", fill="both", expand=True, padx=(0, 10))
         scroll.pack(side="right", fill="y")
-        return body
+        return body, canvas
+
+    def _bind_dialog_wheel(self, widget, canvas) -> None:
+        """Bind mouse wheel on every widget in the settings form."""
+
+        def _wheel(event):
+            if getattr(event, "num", None) == 4 or getattr(event, "delta", 0) > 0:
+                canvas.yview_scroll(-1, "units")
+            elif getattr(event, "num", None) == 5 or getattr(event, "delta", 0) < 0:
+                canvas.yview_scroll(1, "units")
+            return "break"
+
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            widget.bind(seq, _wheel)
+        for child in widget.winfo_children():
+            self._bind_dialog_wheel(child, canvas)
 
     def _form_label(self, parent, text: str) -> None:
         tk = self.tk
+        bg = parent.cget("bg")
         tk.Label(
-            parent, text=text, bg=CARD, fg=MUTED, font=("Sans", 10),
+            parent, text=text, bg=bg, fg=MUTED, font=("Sans", 10),
             width=LABEL_W, anchor="w",
         ).pack(side="left", padx=(0, 10))
 
     def _input_shell(self, parent) -> tk.Frame:
         tk = self.tk
+        bg = parent.cget("bg")
         shell = tk.Frame(parent, bg=FIELD_BG, height=INPUT_H)
         shell.pack(side="left", fill="x", expand=True)
         shell.pack_propagate(False)
@@ -459,7 +501,8 @@ class EasyAmigaGUI:
         width: int = 20,
     ):
         tk, ttk = self.tk, self.ttk
-        row = tk.Frame(parent, bg=CARD)
+        bg = parent.cget("bg")
+        row = tk.Frame(parent, bg=bg)
         row.pack(fill="x", pady=3)
         self._form_label(row, label)
         shell = self._input_shell(row)
@@ -488,7 +531,8 @@ class EasyAmigaGUI:
 
     def _entry_row(self, parent, label: str, var, inherited: bool = False, width: int = 12):
         tk = self.tk
-        row = tk.Frame(parent, bg=CARD)
+        bg = parent.cget("bg")
+        row = tk.Frame(parent, bg=bg)
         row.pack(fill="x", pady=3)
         self._form_label(row, label)
         shell = self._input_shell(row)
@@ -518,7 +562,8 @@ class EasyAmigaGUI:
 
     def _name_entry_row(self, parent, label: str, var):
         tk = self.tk
-        row = tk.Frame(parent, bg=CARD)
+        bg = parent.cget("bg")
+        row = tk.Frame(parent, bg=bg)
         row.pack(fill="x", pady=3)
         self._form_label(row, label)
         shell = self._input_shell(row)
@@ -532,7 +577,8 @@ class EasyAmigaGUI:
 
     def _section_label(self, parent, text: str):
         tk = self.tk
-        tk.Label(parent, text=text, bg=CARD, fg=TEXT, font=("Sans", 11, "bold")).pack(
+        bg = parent.cget("bg")
+        tk.Label(parent, text=text, bg=bg, fg=TEXT, font=("Sans", 11, "bold")).pack(
             anchor="w", pady=(10, 4))
 
     def _finish_widget_loading(self, widgets) -> None:
@@ -549,9 +595,10 @@ class EasyAmigaGUI:
                  font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(14, 2))
         tk.Label(win, text="Applied to every game unless overridden per game.",
                  bg=CARD, fg=MUTED, font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 4))
+        tk.Frame(win, bg=DIALOG_SEP, height=1).pack(fill="x", padx=16, pady=(4, 0))
 
         main, footer = self._dialog_layout(win)
-        body = self._scrollable_body(main)
+        body, scroll_canvas = self._scrollable_body(main)
 
         controls = tk.StringVar(value=d["controls"])
         scale = tk.StringVar(value=d["scale"])
@@ -585,6 +632,7 @@ class EasyAmigaGUI:
         widgets.append(self._dropdown(body, "CD32 pad mode", cd32, CD32_PAD_CHOICES))
         widgets.append(self._dropdown(body, "Block key dupes", stop_kp, STOP_KEYPRESS_CHOICES))
         self._finish_widget_loading(widgets)
+        self._bind_dialog_wheel(body, scroll_canvas)
 
         def save():
             library.set_defaults(self.paths, {
@@ -628,9 +676,10 @@ class EasyAmigaGUI:
             text="Dim values follow global defaults; bright values are set for this game only.",
             bg=CARD, fg=MUTED, font=("Sans", 9),
         ).pack(anchor="w", padx=16, pady=(4, 0))
+        tk.Frame(win, bg=DIALOG_SEP, height=1).pack(fill="x", padx=16, pady=(6, 0))
 
         main, footer = self._dialog_layout(win)
-        body = self._scrollable_body(main)
+        body, scroll_canvas = self._scrollable_body(main)
 
         name_var = tk.StringVar(value=g.get("display_name", ""))
         self._name_entry_row(body, "Display name", name_var)
@@ -717,6 +766,8 @@ class EasyAmigaGUI:
         )
         notes.pack(fill="both", expand=True, padx=8, pady=6)
         notes.insert("1.0", g.get("notes", ""))
+
+        self._bind_dialog_wheel(body, scroll_canvas)
 
         global_full = "on" if defaults["fullscreen"] else "off"
 
@@ -825,21 +876,19 @@ class EasyAmigaGUI:
 
     def _circle_play_button(self, parent, command):
         tk = self.tk
-        size = 34
+        size = PLAY_SIZE
         canvas = tk.Canvas(
             parent, width=size, height=size, bg=CARD, highlightthickness=0, bd=0,
             cursor="hand2",
         )
-        ring = canvas.create_oval(2, 2, size - 2, size - 2, outline=PLAY_RING, width=1)
-        fill = canvas.create_oval(3, 3, size - 3, size - 3, outline="", fill=PLAY_FILL)
+        fill = canvas.create_oval(1, 1, size - 1, size - 1, outline="", fill=PLAY_FILL)
         tri = canvas.create_polygon(
-            14, 11, 14, 23, 24, 17, fill=PLAY_FG, outline="",
+            11, 8, 11, 18, 19, 13, fill=PLAY_FG, outline="",
         )
 
         def _paint(bg: str) -> None:
             canvas.configure(bg=bg)
-            canvas.itemconfigure(ring, outline=PLAY_RING)
-            canvas.itemconfigure(fill, fill=PLAY_FILL if bg == CARD else CARD_HOVER)
+            canvas.itemconfigure(fill, fill=PLAY_FILL)
             canvas.itemconfigure(tri, fill=PLAY_FG)
 
         def on_click(_event=None):
@@ -858,17 +907,17 @@ class EasyAmigaGUI:
         self._row_by_stem[stem] = row
 
         play_wrap = tk.Frame(row, bg=CARD)
-        play_wrap.pack(side="left", padx=(8, 10), pady=4)
+        play_wrap.pack(side="left", padx=(10, 12), pady=5)
         play, paint_play = self._circle_play_button(
             play_wrap, lambda p=config_path: self.play(p),
         )
         play.pack()
 
         info = tk.Frame(row, bg=CARD)
-        info.pack(side="left", fill="both", expand=True, pady=6)
+        info.pack(side="left", fill="both", expand=True, pady=8)
         title_label = tk.Label(
             info, text=self._title_for(config_path), bg=CARD, fg=TEXT,
-            font=("Sans", 13, "bold"), anchor="w", justify="left",
+            font=("Sans", 11, "bold"), anchor="w", justify="left",
         )
         title_label.pack(anchor="w", fill="x")
         self._row_widgets[stem] = {"title_label": title_label, "info": info, "cog": None}
