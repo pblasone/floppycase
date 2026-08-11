@@ -69,7 +69,7 @@ def _label_for(config_path: Path) -> str:
 class EasyAmigaGUI:
     def __init__(self, base: Optional[str] = None) -> None:
         import tkinter as tk
-        from ttkbootstrap import Window, ttk
+        import ttkbootstrap as ttk
         from ttkbootstrap.constants import DANGER, SECONDARY
 
         self.tk = tk
@@ -82,7 +82,7 @@ class EasyAmigaGUI:
         self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
         self._rows: list[tk.Widget] = []
 
-        self.root = Window(
+        self.root = ttk.Window(
             title="easyamiga",
             themename="darkly",
             size=(900, 620),
