@@ -45,7 +45,9 @@ PLAY_FG = "#ecfdf5"  # play icon on green circle
 PLAY_FILL = "#22c55e"  # bright green, no border ring
 SAVE_BG = "#10b981"
 SAVE_HOVER = "#059669"
-FIELD_BG = "#0b1220"
+FIELD_BG = "#0b1220"       # scroll zones / form panel background
+INPUT_BG = "#1e293b"       # inputs (distinct from FIELD_BG)
+TOOLBAR_BTN = "#334155"    # stronger toolbar button fill
 DIALOG_SEP = "#334155"
 TEXT = "#f8fafc"
 MUTED = "#94a3b8"
@@ -127,13 +129,13 @@ class EasyAmigaGUI:
         except Exception:
             pass
         combo_base = {
-            "fieldbackground": FIELD_BG,
-            "background": FIELD_BG,
+            "fieldbackground": INPUT_BG,
+            "background": INPUT_BG,
             "foreground": TEXT,
             "arrowcolor": MUTED,
-            "bordercolor": FIELD_BG,
-            "lightcolor": FIELD_BG,
-            "darkcolor": FIELD_BG,
+            "bordercolor": INPUT_BG,
+            "lightcolor": INPUT_BG,
+            "darkcolor": INPUT_BG,
             "borderwidth": 0,
             "relief": "flat",
             "padding": (8, 6),
@@ -141,14 +143,14 @@ class EasyAmigaGUI:
         style.configure("Ea.TCombobox", **combo_base)
         style.map(
             "Ea.TCombobox",
-            fieldbackground=[("readonly", FIELD_BG), ("disabled", FIELD_BG)],
+            fieldbackground=[("readonly", INPUT_BG), ("disabled", INPUT_BG)],
             foreground=[("readonly", TEXT)],
-            background=[("readonly", FIELD_BG)],
+            background=[("readonly", INPUT_BG)],
         )
         style.configure("EaInherited.TCombobox", **{**combo_base, "foreground": INHERITED})
         style.map(
             "EaInherited.TCombobox",
-            fieldbackground=[("readonly", FIELD_BG)],
+            fieldbackground=[("readonly", INPUT_BG)],
             foreground=[("readonly", INHERITED)],
         )
         scroll_base = {
@@ -171,7 +173,7 @@ class EasyAmigaGUI:
     def _build_header(self) -> None:
         tk = self.tk
         header = tk.Frame(self.root, bg=BG)
-        header.pack(fill="x", padx=18, pady=(16, 6))
+        header.pack(fill="x", padx=18, pady=(22, 14))
 
         badge = tk.Canvas(header, width=44, height=44, bg=BG, highlightthickness=0)
         badge.pack(side="left")
@@ -180,7 +182,7 @@ class EasyAmigaGUI:
         text = tk.Frame(header, bg=BG)
         text.pack(side="left", padx=12)
         tk.Label(text, text="easyamiga", bg=BG, fg=TEXT,
-                 font=("Sans", 22, "bold")).pack(anchor="w")
+                 font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
         tk.Label(text, text="Click a game to play it on your Amiga",
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
 
@@ -200,10 +202,13 @@ class EasyAmigaGUI:
 
     def _toolbar_button(self, parent, text, command):
         tk = self.tk
-        btn = tk.Button(parent, text=text, command=command, bg=CARD, fg=TEXT,
-                        activebackground=CARD_HOVER, activeforeground=TEXT,
-                        relief="flat", font=("Sans", 10), padx=10, pady=6,
-                        cursor="hand2", borderwidth=0)
+        btn = tk.Button(
+            parent, text=text, command=command, bg=TOOLBAR_BTN, fg=TEXT,
+            activebackground=CARD_HOVER, activeforeground=TEXT,
+            relief="flat", font=("Sans", 10), padx=10, pady=6,
+            cursor="hand2", borderwidth=0, highlightthickness=0,
+            highlightbackground=TOOLBAR_BTN, highlightcolor=TOOLBAR_BTN,
+        )
         btn.pack(side="left", padx=4)
         return btn
 
@@ -215,15 +220,23 @@ class EasyAmigaGUI:
         self.banner = tk.Label(container, text="", bg="#7f1d1d", fg=TEXT,
                                font=("Sans", 10, "bold"), anchor="w", padx=12)
 
-        self.canvas = tk.Canvas(container, bg=CONTENT_BG, highlightthickness=0)
-        self.scroll = self.ttk.Scrollbar(container, orient="vertical",
-                                         command=self.canvas.yview)
-        self.list_frame = tk.Frame(self.canvas, bg=CONTENT_BG)
+        list_zone = tk.Frame(container, bg=FIELD_BG)
+        list_zone.pack(fill="both", expand=True, pady=(4, 0))
+
+        outer = tk.Frame(list_zone, bg=FIELD_BG)
+        outer.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.canvas = tk.Canvas(outer, bg=FIELD_BG, highlightthickness=0, bd=0)
+        self.scroll = self.ttk.Scrollbar(
+            outer, orient="vertical", command=self.canvas.yview,
+            style="Ea.Vertical.TScrollbar",
+        )
+        self.list_frame = tk.Frame(self.canvas, bg=FIELD_BG)
         self._list_window = self.canvas.create_window((0, 0), window=self.list_frame,
                                                        anchor="nw")
         self.canvas.configure(yscrollcommand=self.scroll.set)
 
-        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.pack(side="left", fill="both", expand=True, padx=(0, 10))
         self.scroll.pack(side="right", fill="y")
 
         self.list_frame.bind(
@@ -241,6 +254,7 @@ class EasyAmigaGUI:
         )
         self.scan_overlay_label.pack(expand=True)
         self._list_container = container
+        self._list_zone = list_zone
 
     def _build_statusbar(self) -> None:
         tk = self.tk
@@ -485,8 +499,7 @@ class EasyAmigaGUI:
 
     def _input_shell(self, parent) -> tk.Frame:
         tk = self.tk
-        bg = parent.cget("bg")
-        shell = tk.Frame(parent, bg=FIELD_BG, height=INPUT_H)
+        shell = tk.Frame(parent, bg=INPUT_BG, height=INPUT_H)
         shell.pack(side="left", fill="x", expand=True)
         shell.pack_propagate(False)
         return shell
@@ -538,7 +551,7 @@ class EasyAmigaGUI:
         shell = self._input_shell(row)
         fg = INHERITED if inherited else TEXT
         entry = tk.Entry(
-            shell, textvariable=var, bg=FIELD_BG, fg=fg, insertbackground=TEXT,
+            shell, textvariable=var, bg=INPUT_BG, fg=fg, insertbackground=TEXT,
             relief="flat", font=("Sans", 10), width=width,
             highlightthickness=0, borderwidth=0,
         )
@@ -568,7 +581,7 @@ class EasyAmigaGUI:
         self._form_label(row, label)
         shell = self._input_shell(row)
         entry = tk.Entry(
-            shell, textvariable=var, bg=FIELD_BG, fg=TEXT, insertbackground=TEXT,
+            shell, textvariable=var, bg=INPUT_BG, fg=TEXT, insertbackground=TEXT,
             relief="flat", font=("Sans", 10),
             highlightthickness=0, borderwidth=0,
         )
@@ -673,8 +686,11 @@ class EasyAmigaGUI:
             ).pack(anchor="w", padx=16, pady=(2, 0))
         tk.Label(
             win,
-            text="Dim values follow global defaults; bright values are set for this game only.",
-            bg=CARD, fg=MUTED, font=("Sans", 9),
+            text=(
+                "You can try to tweak Amiberry settings here if the game doesn't run "
+                "as desired. Grayed out values follow the global default."
+            ),
+            bg=CARD, fg=MUTED, font=("Sans", 9), wraplength=440, justify="left",
         ).pack(anchor="w", padx=16, pady=(4, 0))
         tk.Frame(win, bg=DIALOG_SEP, height=1).pack(fill="x", padx=16, pady=(6, 0))
 
@@ -757,15 +773,20 @@ class EasyAmigaGUI:
         self._finish_widget_loading(widgets)
 
         self._section_label(body, "Notes")
-        notes_shell = tk.Frame(body, bg=FIELD_BG)
-        notes_shell.pack(fill="x", pady=(2, 8))
+        notes_shell = tk.Frame(body, bg=INPUT_BG)
+        notes_shell.pack(fill="x", pady=(2, 0))
         notes = tk.Text(
-            notes_shell, height=4, bg=FIELD_BG, fg=TEXT, insertbackground=TEXT,
+            notes_shell, height=4, bg=INPUT_BG, fg=TEXT, insertbackground=TEXT,
             relief="flat", font=("Sans", 10), wrap="word",
             highlightthickness=0, borderwidth=0,
         )
         notes.pack(fill="both", expand=True, padx=8, pady=6)
         notes.insert("1.0", g.get("notes", ""))
+        tk.Label(
+            body,
+            text="Here you can put your own notes about the game.",
+            bg=FIELD_BG, fg=MUTED, font=("Sans", 9),
+        ).pack(anchor="w", pady=(2, 8))
 
         self._bind_dialog_wheel(body, scroll_canvas)
 
@@ -874,28 +895,30 @@ class EasyAmigaGUI:
             if row is not None:
                 row.pack(fill="x", padx=8, pady=3)
 
-    def _circle_play_button(self, parent, command):
+    def _square_play_button(self, parent, command):
         tk = self.tk
-        size = PLAY_SIZE
-        canvas = tk.Canvas(
-            parent, width=size, height=size, bg=CARD, highlightthickness=0, bd=0,
-            cursor="hand2",
+        box = tk.Frame(
+            parent, width=PLAY_SIZE, height=PLAY_SIZE, bg=PLAY_FILL,
+            cursor="hand2", highlightthickness=0, bd=0,
         )
-        fill = canvas.create_oval(1, 1, size - 1, size - 1, outline="", fill=PLAY_FILL)
-        tri = canvas.create_polygon(
-            11, 8, 11, 18, 19, 13, fill=PLAY_FG, outline="",
+        box.pack_propagate(False)
+        icon = tk.Label(
+            box, text="\u25b8", bg=PLAY_FILL, fg=PLAY_FG,
+            font=("Sans", 12, "bold"), cursor="hand2",
         )
-
-        def _paint(bg: str) -> None:
-            canvas.configure(bg=bg)
-            canvas.itemconfigure(fill, fill=PLAY_FILL)
-            canvas.itemconfigure(tri, fill=PLAY_FG)
+        icon.place(relx=0.5, rely=0.5, anchor="center")
 
         def on_click(_event=None):
             command()
 
-        canvas.bind("<Button-1>", on_click)
-        return canvas, _paint
+        box.bind("<Button-1>", on_click)
+        icon.bind("<Button-1>", on_click)
+
+        def _paint(_bg: str) -> None:
+            # Keep the play control green on row hover.
+            pass
+
+        return box, _paint
 
     def _make_row(self, config_path: Path):
         tk = self.tk
@@ -908,7 +931,7 @@ class EasyAmigaGUI:
 
         play_wrap = tk.Frame(row, bg=CARD)
         play_wrap.pack(side="left", padx=(10, 12), pady=5)
-        play, paint_play = self._circle_play_button(
+        play, paint_play = self._square_play_button(
             play_wrap, lambda p=config_path: self.play(p),
         )
         play.pack()
