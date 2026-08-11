@@ -281,6 +281,35 @@ def whdload_db_counts() -> tuple[int, int]:
     return _db_game_count(gd / "whdload_db.json"), _db_game_count(gd / "whdload_db.bak")
 
 
+def load_whdload_db() -> tuple[dict, dict]:
+    """Load Amiberry's WHDLoad game database, indexed by sha1 and by filename.
+
+    Prefers the full backup if the active database looks like a stub.
+    """
+    import json
+
+    gd = amiberry.whdboot_path() / "game-data"
+    active = gd / "whdload_db.json"
+    backup = gd / "whdload_db.bak"
+    path = active
+    if _db_game_count(backup) > _db_game_count(active):
+        path = backup
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+    except (OSError, ValueError):
+        return {}, {}
+    by_sha1: dict[str, dict] = {}
+    by_name: dict[str, dict] = {}
+    for game in data.get("games", []):
+        sha = (game.get("sha1") or "").lower()
+        name = (game.get("filename") or "")
+        if sha:
+            by_sha1[sha] = game
+        if name:
+            by_name[name.lower()] = game
+    return by_sha1, by_name
+
+
 def repair_whdload_db(log=print) -> bool:
     """Restore the full WHDLoad game database if the active one is a stub.
 

@@ -14,6 +14,7 @@ of a cryptic emulator crash.
 
 from __future__ import annotations
 
+import hashlib
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,6 +110,15 @@ def crc32_of(path: Path) -> str:
 
 def crc32_bytes(data: bytes) -> str:
     return f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"
+
+
+def sha1_of(path: Path) -> str:
+    """Return the lowercase hex SHA-1 of a file (used to match the WHDLoad DB)."""
+    digest = hashlib.sha1()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 16), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _looks_like_rom(path: Path) -> bool:

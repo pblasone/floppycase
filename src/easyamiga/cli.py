@@ -12,7 +12,13 @@ from rich.table import Table
 
 from . import __version__, amiberry, install as install_mod
 from .config_gen import ConfigOptions, read_meta, write_config
-from .games import add_game as add_game_impl, list_configs, resolve_launch, scan_games
+from .games import (
+    add_game as add_game_impl,
+    discover_game_sources,
+    list_configs,
+    resolve_launch,
+    scan_games,
+)
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import (
@@ -23,7 +29,10 @@ from .roms import (
     default_model_key,
     detect_roms,
     pick_rom_for_model,
+    sha1_of,
 )
+
+WHDLOAD_ARCHIVE_SUFFIXES = {".lha", ".lzh", ".lzx", ".zip"}
 
 app = typer.Typer(
     add_completion=False,
@@ -383,6 +392,55 @@ def clean_configs(
         console.print("No cached game configs to remove.")
 
 
+@app.command()
+def verify(base: Optional[str] = BaseOption) -> None:
+    """Check which games are recognised RetroPlay packs (and which may need work).
+
+    Matches each game against Amiberry's WHDLoad database by SHA-1 (exact pack)
+    or filename, so you can tell plug-and-play packs from ones that likely need
+    manual setup or a different download.
+    """
+    paths = _paths(base)
+    by_sha1, by_name = install_mod.load_whdload_db()
+    if not by_sha1 and not by_name:
+        console.print(
+            "[yellow]WHDLoad database unavailable - run 'easyamiga install' or "
+            "'easyamiga repair-whdboot' first.[/yellow]"
+        )
+
+    table = Table(title=f"Game check ({paths.games})")
+    table.add_column("Game")
+    table.add_column("Status")
+    recognised = 0
+    total = 0
+    for source in discover_game_sources(paths):
+        total += 1
+        if source.is_dir():
+            table.add_row(source.name, "[yellow]folder - a .lha RetroPlay pack is recommended[/yellow]")
+            continue
+        if source.suffix.lower() not in WHDLOAD_ARCHIVE_SUFFIXES:
+            table.add_row(source.name, "disk image (ADF/CD) - boots directly")
+            continue
+        entry = by_sha1.get(sha1_of(source))
+        how = "exact pack"
+        if entry is None:
+            entry = by_name.get(source.stem.lower())
+            how = "name match (different build)"
+        if entry:
+            recognised += 1
+            table.add_row(source.name, f"[green]recognised[/green] ({how}): {entry.get('name', '?')}")
+        else:
+            table.add_row(source.name, "[yellow]not in database - may need manual setup or a RetroPlay pack[/yellow]")
+    if total == 0:
+        table.add_row("(none)", "drop game .lha files into the games folder first")
+    console.print(table)
+    if total:
+        console.print(
+            f"{recognised}/{total} recognised as WHDLoad packs. Recognised packs should "
+            "auto-boot once the game's Kickstart is present (see 'easyamiga doctor')."
+        )
+
+
 @app.command("repair-whdboot")
 def repair_whdboot(base: Optional[str] = BaseOption) -> None:
     """Restore Amiberry's full WHDLoad game database if it was replaced by a stub.
@@ -441,12 +499,23 @@ def doctor(base: Optional[str] = BaseOption) -> None:
         )
 
     if exe:
-        has_a1200 = any(r.usable and r.known and r.known.model == "a1200" for r in roms)
-        table.add_row(
-            "WHDLoad Kickstart",
-            "[green]A1200 KS 3.1 present[/green]" if has_a1200
-            else "[yellow]no usable A1200 KS 3.1 - WHDLoad games may not boot[/yellow]",
+        present = {r.crc32 for r in roms if r.usable}
+        wanted = [
+            ("1.3 (A500)", "c4f0f55f"),
+            ("2.05 (A600)", "43b0df7b"),
+            ("3.1 (A1200)", "1483a091"),
+        ]
+        cover = ", ".join(
+            f"[green]{label} \u2713[/green]" if crc in present else f"[yellow]{label} \u2717[/yellow]"
+            for label, crc in wanted
         )
+        table.add_row("Kickstarts (WHDLoad)", cover)
+        if not all(crc in present for _, crc in wanted):
+            table.add_row(
+                "",
+                "[yellow]Add the full Amiga Forever ROM set - different games need "
+                "different Kickstarts.[/yellow]",
+            )
         booter = amiberry.whdboot_path() / "WHDLoad"
         table.add_row("WHDLoad Booter", "[green]ready[/green]" if booter.exists() else "[yellow]missing (run install)[/yellow]")
         active, backup = install_mod.whdload_db_counts()

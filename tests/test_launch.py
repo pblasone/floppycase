@@ -115,6 +115,40 @@ def test_effective_roms_dir_prefers_amiberry(tmp_path, monkeypatch):
     assert install.effective_roms_dir(paths) == amiga_dir
 
 
+def test_sha1_of_matches_hashlib(tmp_path):
+    import hashlib
+
+    from easyamiga.roms import sha1_of
+
+    p = tmp_path / "x.lha"
+    data = b"hello whdload" * 1000
+    p.write_bytes(data)
+    assert sha1_of(p) == hashlib.sha1(data).hexdigest()
+
+
+def test_load_whdload_db_indexes(tmp_path, monkeypatch):
+    import json
+
+    from easyamiga import install
+
+    gd = tmp_path / "WHDBoot" / "game-data"
+    gd.mkdir(parents=True)
+    (gd / "whdload_db.json").write_text(
+        json.dumps(
+            {
+                "games": [
+                    {"filename": "Firepower_v1.0_0061", "sha1": "aa11", "name": "Firepower"},
+                    {"filename": "DuckTales_v1.1_0299", "sha1": "bb22", "name": "DuckTales"},
+                ]
+            }
+        )
+    )
+    monkeypatch.setattr(install.amiberry, "whdboot_path", lambda: tmp_path / "WHDBoot")
+    by_sha1, by_name = install.load_whdload_db()
+    assert by_sha1["aa11"]["name"] == "Firepower"
+    assert by_name["ducktales_v1.1_0299"]["name"] == "DuckTales"
+
+
 def test_migrate_legacy_roms_copies_once(tmp_path):
     from easyamiga import install
     from easyamiga.paths import Paths
