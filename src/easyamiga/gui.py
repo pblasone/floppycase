@@ -15,7 +15,14 @@ from pathlib import Path
 from typing import Optional
 
 from . import amiberry, install as install_mod
-from .games import add_game, discover_game_sources, list_configs, resolve_launch, scan_games
+from .games import (
+    add_game,
+    discover_game_sources,
+    list_configs,
+    prune_orphans,
+    resolve_launch,
+    scan_games,
+)
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import DetectedRom, default_model_key, detect_roms, pick_rom_for_model
@@ -186,15 +193,18 @@ class EasyAmigaGUI:
 
         model = get_model(self.model_var.get())
         rom = self._current_rom(model.key)
-        games = scan_games(self.paths, model, rom=rom, roms_dir=self.roms_dir)
+        pruned = prune_orphans(self.paths)  # drop games whose files were deleted
+        games = scan_games(self.paths, model, rom=rom, roms_dir=self.roms_dir, prune=False)
         added = sum(1 for g in games if g.newly_created)
         self.refresh()
         if announce:
-            messagebox.showinfo(
-                "Scan complete",
+            msg = (
                 f"Found {len(games)} game(s) in your games folder.\n"
-                f"Added {added} new one(s).",
+                f"Added {added} new one(s)."
             )
+            if pruned:
+                msg += f"\nRemoved {len(pruned)} game(s) whose files were deleted."
+            messagebox.showinfo("Scan complete", msg)
 
     def add_file(self) -> None:
         from tkinter import filedialog

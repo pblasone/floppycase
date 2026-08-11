@@ -16,6 +16,7 @@ from .games import (
     add_game as add_game_impl,
     discover_game_sources,
     list_configs,
+    prune_orphans,
     resolve_launch,
     scan_games,
 )
@@ -314,7 +315,8 @@ def scan(
     paths = _paths(base)
     amiga = get_model(_resolve_model(paths, model))
     rom = _usable_or_warn(_resolve_rom(paths, None, amiga.key))
-    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher, overwrite=force, roms_dir=_roms_dir(paths))
+    pruned = prune_orphans(paths)  # drop games whose files were deleted
+    games = scan_games(paths, amiga, rom=rom, create_launchers=launcher, overwrite=force, roms_dir=_roms_dir(paths), prune=False)
     added = sum(1 for g in games if g.newly_created)
 
     table = Table(title=f"Scanned {paths.games}")
@@ -323,10 +325,15 @@ def scan(
     table.add_column("Status")
     for g in games:
         table.add_row(g.name, g.kind, "[green]new[/green]" if g.newly_created else "already registered")
-    if not games:
+    for name in pruned:
+        table.add_row(name, "-", "[red]removed (file deleted)[/red]")
+    if not games and not pruned:
         table.add_row("(none)", "-", "drop games into the folder first")
     console.print(table)
-    console.print(f"Found {len(games)} game(s); [bold]{added}[/bold] newly added.")
+    summary = f"Found {len(games)} game(s); [bold]{added}[/bold] newly added"
+    if pruned:
+        summary += f"; [bold]{len(pruned)}[/bold] removed"
+    console.print(summary + ".")
 
 
 @app.command("sync-roms")

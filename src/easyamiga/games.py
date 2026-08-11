@@ -118,6 +118,26 @@ def list_configs(paths: Paths) -> list[Path]:
     return sorted(paths.configs.glob("*.uae"))
 
 
+def prune_orphans(paths: Paths) -> list[str]:
+    """Remove configs + launchers for games whose source file no longer exists.
+
+    Only touches easyamiga game configs (those with a recorded ``source``); bare
+    machine configs and anything without game metadata are left alone. Returns
+    the names of the games that were pruned.
+    """
+    removed: list[str] = []
+    for cfg in list_configs(paths):
+        source = read_meta(cfg).get("source")
+        if source and not Path(source).exists():
+            try:
+                cfg.unlink()
+            except OSError:
+                continue
+            desktop.remove_launcher(cfg.stem)
+            removed.append(cfg.stem)
+    return removed
+
+
 def resolve_launch(paths: Paths, config_path: Path) -> tuple[Path | None, str | None]:
     """Work out the actual game file + kind for a config, authoritatively.
 
@@ -165,14 +185,18 @@ def scan_games(
     create_launchers: bool = True,
     overwrite: bool = False,
     roms_dir: Path | None = None,
+    prune: bool = True,
 ) -> list[Game]:
     """Register every game found in the games directory.
 
     Idempotent: games that already have a config are left as-is (unless
     ``overwrite`` is set) but still returned so callers get the full list.
-    Newly registered games have ``newly_created=True``.
+    Newly registered games have ``newly_created=True``. When ``prune`` is set,
+    configs/launchers for deleted games are removed first.
     """
     paths.ensure()
+    if prune:
+        prune_orphans(paths)
     results: list[Game] = []
     for source in discover_game_sources(paths):
         name = source.stem

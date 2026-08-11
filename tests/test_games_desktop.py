@@ -134,6 +134,37 @@ def test_scan_heals_stale_config(tmp_path, monkeypatch):
     assert "easyamiga_model=a1200" in healed
 
 
+def test_scan_prunes_deleted_games(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    keep = paths.games / "Keeper.lha"
+    keep.write_bytes(b"x")
+    gone = paths.games / "Gone.lha"
+    gone.write_bytes(b"x")
+
+    scan_games(paths, get_model("a500"))
+    assert {c.stem for c in list_configs(paths)} == {"Keeper", "Gone"}
+
+    # User deletes one game file, then rescans.
+    gone.unlink()
+    scan_games(paths, get_model("a500"))
+    assert {c.stem for c in list_configs(paths)} == {"Keeper"}
+
+
+def test_prune_keeps_bare_machine_configs(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    from easyamiga.config_gen import ConfigOptions, write_config
+    from easyamiga.games import prune_orphans
+
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    # A bare-machine config (no game source) must never be pruned.
+    write_config(ConfigOptions(model=get_model("a500"), paths=paths), "a500")
+    assert prune_orphans(paths) == []
+    assert (paths.configs / "a500.uae").exists()
+
+
 def test_app_launcher_written(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
     target = desktop.write_app_launcher()
