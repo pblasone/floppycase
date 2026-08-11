@@ -14,7 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from . import amiberry, install as install_mod
+from . import amiberry, install as install_mod, library
 from .games import (
     add_game,
     discover_game_sources,
@@ -26,6 +26,10 @@ from .games import (
 from .models import DEFAULT_MODEL, MODELS, get_model
 from .paths import Paths
 from .roms import DetectedRom, default_model_key, detect_roms, pick_rom_for_model
+
+CONTROL_CHOICES = ["keyboard-arrows", "keyboard-numpad", "gamepad"]
+SCALE_CHOICES = ["1x", "2x", "3x"]
+FILTER_CHOICES = ["none", "crt"]
 
 # Palette (Amiga-ish dark blue with a boing-ball red accent)
 BG = "#0f172a"
@@ -72,6 +76,7 @@ class EasyAmigaGUI:
         self.paths = Paths.resolve(base)
         self.paths.ensure()
         self.roms_dir = install_mod.effective_roms_dir(self.paths)
+        self.db_by_sha1, self.db_by_name = install_mod.load_whdload_db()
         self._cards: list[tk.Widget] = []
         self._columns = 3
 
@@ -127,6 +132,7 @@ class EasyAmigaGUI:
         self._toolbar_button(bar, "+  Add game file", self.add_file)
         self._toolbar_button(bar, "+  Add game folder", self.add_folder)
         self._toolbar_button(bar, "\U0001F4C1  Open games folder", self.open_games)
+        self._toolbar_button(bar, "\u2699  Settings", self.open_default_settings)
 
     def _toolbar_button(self, parent, text, command):
         tk = self.tk
@@ -185,6 +191,10 @@ class EasyAmigaGUI:
                                            fill="#ffffff", outline="")
 
     # --- behaviour ---------------------------------------------------------
+    def _title_for(self, config_path: Path) -> str:
+        override = library.get_game(self.paths, config_path.stem).get("display_name")
+        return library.title_for(config_path.stem, override, self.db_by_name)
+
     def _current_rom(self, model_key: str) -> Optional[DetectedRom]:
         return pick_rom_for_model(detect_roms(self.roms_dir), model_key)
 
@@ -253,18 +263,147 @@ class EasyAmigaGUI:
             )
             return
 
+        eff = library.effective(self.paths, config_path.stem)
+        joyports, options = library.launch_args(eff)
         source, kind = resolve_launch(self.paths, config_path)
         try:
             if kind == "whdload" and source is not None:
                 # WHDLoad game: boot via Amiberry's WHDLoad Booter (--autoload),
                 # regardless of what a stale config said.
                 install_mod.sync_kickstarts(self.paths, log=lambda *_: None)
-                amiberry.launch_game(source, kind, wait=False)
+                amiberry.launch_game(source, kind, wait=False, joyports=joyports, options=options)
             else:
                 # ADF game (boots the floppy) or a bare machine: use the config.
-                amiberry.launch(config_path, wait=False)
+                amiberry.launch(config_path, wait=False, joyports=joyports, options=options)
         except FileNotFoundError as exc:
             messagebox.showerror("Could not launch game", str(exc))
+
+    # --- settings dialogs --------------------------------------------------
+    def _dropdown(self, parent, label, var, choices):
+        tk = self.tk
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", pady=4)
+        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Sans", 10), width=12,
+                 anchor="w").pack(side="left")
+        menu = tk.OptionMenu(row, var, *choices)
+        menu.configure(bg=BG, fg=TEXT, activebackground=CARD_HOVER, activeforeground=TEXT,
+                       highlightthickness=0, relief="flat", font=("Sans", 10), width=16)
+        menu["menu"].configure(bg=BG, fg=TEXT)
+        menu.pack(side="left")
+
+    def _new_dialog(self, title, width=440, height=460):
+        tk = self.tk
+        win = tk.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg=CARD)
+        win.geometry(f"{width}x{height}")
+        win.transient(self.root)
+        return win
+
+    def open_default_settings(self) -> None:
+        tk = self.tk
+        d = library.get_defaults(self.paths)
+        win = self._new_dialog("Default settings (all games)", height=340)
+        tk.Label(win, text="Default settings", bg=CARD, fg=TEXT,
+                 font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(14, 2))
+        tk.Label(win, text="Applied to every game unless overridden.", bg=CARD, fg=MUTED,
+                 font=("Sans", 9)).pack(anchor="w", padx=16, pady=(0, 8))
+        body = tk.Frame(win, bg=CARD)
+        body.pack(fill="x", padx=16)
+
+        controls = tk.StringVar(value=d["controls"])
+        scale = tk.StringVar(value=d["scale"])
+        filt = tk.StringVar(value=d["filter"])
+        full = tk.StringVar(value="on" if d["fullscreen"] else "off")
+        self._dropdown(body, "Controls", controls, CONTROL_CHOICES)
+        self._dropdown(body, "Fullscreen", full, ["off", "on"])
+        self._dropdown(body, "Window scale", scale, SCALE_CHOICES)
+        self._dropdown(body, "Filter", filt, FILTER_CHOICES)
+
+        def save():
+            library.set_defaults(self.paths, {
+                "controls": controls.get(),
+                "fullscreen": full.get() == "on",
+                "scale": scale.get(),
+                "filter": filt.get(),
+            })
+            win.destroy()
+            self.refresh()
+
+        self._dialog_buttons(win, save)
+
+    def open_game_settings(self, config_path: Path) -> None:
+        tk = self.tk
+        key = config_path.stem
+        g = library.get_game(self.paths, key)
+        real = library.title_for(key, None, self.db_by_name)
+        win = self._new_dialog(f"Settings - {real}")
+
+        tk.Label(win, text=real, bg=CARD, fg=TEXT, font=("Sans", 14, "bold"),
+                 wraplength=400, justify="left").pack(anchor="w", padx=16, pady=(14, 0))
+        tk.Label(win, text=key, bg=CARD, fg=MUTED, font=("Sans", 8)).pack(anchor="w", padx=16)
+        body = tk.Frame(win, bg=CARD)
+        body.pack(fill="x", padx=16, pady=(8, 0))
+
+        name_var = tk.StringVar(value=g.get("display_name", ""))
+        row = tk.Frame(body, bg=CARD)
+        row.pack(fill="x", pady=4)
+        tk.Label(row, text="Display name", bg=CARD, fg=MUTED, font=("Sans", 10), width=12,
+                 anchor="w").pack(side="left")
+        tk.Entry(row, textvariable=name_var, bg=BG, fg=TEXT, insertbackground=TEXT,
+                 relief="flat", font=("Sans", 10), width=26).pack(side="left")
+
+        # "default" defers to the global default for that setting.
+        controls = tk.StringVar(value=g.get("controls", "default"))
+        full = tk.StringVar(value=g.get("fullscreen_choice", "default"))
+        scale = tk.StringVar(value=g.get("scale", "default"))
+        filt = tk.StringVar(value=g.get("filter", "default"))
+        self._dropdown(body, "Controls", controls, ["default"] + CONTROL_CHOICES)
+        self._dropdown(body, "Fullscreen", full, ["default", "off", "on"])
+        self._dropdown(body, "Window scale", scale, ["default"] + SCALE_CHOICES)
+        self._dropdown(body, "Filter", filt, ["default"] + FILTER_CHOICES)
+
+        tk.Label(win, text="Notes", bg=CARD, fg=MUTED, font=("Sans", 10)).pack(
+            anchor="w", padx=16, pady=(8, 0))
+        notes = tk.Text(win, height=5, bg=BG, fg=TEXT, insertbackground=TEXT,
+                        relief="flat", font=("Sans", 10), wrap="word")
+        notes.pack(fill="both", expand=True, padx=16, pady=(2, 6))
+        notes.insert("1.0", g.get("notes", ""))
+
+        def save():
+            values: dict = {
+                "display_name": name_var.get().strip(),
+                "notes": notes.get("1.0", "end").strip(),
+                "controls": controls.get(),
+                "scale": scale.get(),
+                "filter": filt.get(),
+                "fullscreen_choice": full.get(),
+            }
+            # Translate the tri-state fullscreen choice into the effective setting.
+            if full.get() == "on":
+                values["fullscreen"] = True
+            elif full.get() == "off":
+                values["fullscreen"] = False
+            else:
+                values["fullscreen"] = "default"
+            library.set_game(self.paths, key, values)
+            win.destroy()
+            self.refresh()
+
+        self._dialog_buttons(win, save)
+
+    def _dialog_buttons(self, win, on_save):
+        tk = self.tk
+        bar = tk.Frame(win, bg=CARD)
+        bar.pack(fill="x", side="bottom", padx=16, pady=12)
+        tk.Button(bar, text="Save", command=on_save, bg=ACCENT, fg="#ffffff",
+                  activebackground=ACCENT_DK, activeforeground="#ffffff", relief="flat",
+                  font=("Sans", 11, "bold"), cursor="hand2", borderwidth=0,
+                  padx=16, pady=6).pack(side="right", padx=4)
+        tk.Button(bar, text="Cancel", command=win.destroy, bg=BG, fg=TEXT,
+                  activebackground=CARD_HOVER, activeforeground=TEXT, relief="flat",
+                  font=("Sans", 11), cursor="hand2", borderwidth=0,
+                  padx=16, pady=6).pack(side="right", padx=4)
 
     # --- layout / refresh --------------------------------------------------
     def refresh(self) -> None:
@@ -291,18 +430,29 @@ class EasyAmigaGUI:
         card.pack_propagate(False)
 
         top = tk.Frame(card, bg=CARD)
-        top.pack(fill="x", padx=12, pady=(12, 4))
+        top.pack(fill="x", padx=12, pady=(10, 4))
         badge = tk.Canvas(top, width=34, height=34, bg=CARD, highlightthickness=0)
         badge.pack(side="left")
         self._draw_boing(badge, 17, 17, 14)
 
-        name = _label_for(config_path)
+        # Per-game settings (cog) button, top-right.
+        cog = tk.Button(top, text="\u2699", command=lambda p=config_path: self.open_game_settings(p),
+                        bg=CARD, fg=MUTED, activebackground=CARD_HOVER, activeforeground=TEXT,
+                        relief="flat", font=("Sans", 12), cursor="hand2", borderwidth=0,
+                        padx=4, pady=0)
+        cog.pack(side="right", anchor="n")
+
+        name = self._title_for(config_path)
         info = tk.Frame(top, bg=CARD)
         info.pack(side="left", fill="x", padx=8)
         tk.Label(info, text=name, bg=CARD, fg=TEXT, font=("Sans", 12, "bold"),
-                 anchor="w", justify="left", wraplength=150).pack(anchor="w")
+                 anchor="w", justify="left", wraplength=140).pack(anchor="w")
         chipset = (_read_field(config_path, "chipset") or "").upper()
-        tk.Label(info, text=chipset or "Amiga", bg=CARD, fg=MUTED,
+        note = library.get_game(self.paths, config_path.stem).get("notes", "")
+        subtitle = chipset or "Amiga"
+        if note:
+            subtitle += "  \u270e"  # pencil marker: has notes
+        tk.Label(info, text=subtitle, bg=CARD, fg=MUTED,
                  font=("Sans", 9)).pack(anchor="w")
 
         play = tk.Button(card, text="\u25B6  Play", command=lambda p=config_path: self.play(p),
