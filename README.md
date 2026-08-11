@@ -32,7 +32,7 @@ gives every game a clickable desktop icon.
   menu.
 - **Friendly desktop app** – `easyamiga gui` opens a scrollable alphabetical list
   of your games; click the play icon (or double-click a row) to launch.
-- **Per-game settings & notes** – a cog on each tile opens a dialog to set
+- **Per-game settings & notes** – a cog on each row opens a dialog to set
   controls, window scale, fullscreen and a display filter, plus a free-text
   **notes** field to remember what you worked out for a game. A global
   **Settings** dialog sets the defaults for everything.
@@ -42,20 +42,49 @@ gives every game a clickable desktop icon.
 
 ## Quick start
 
-```bash
-# 1. Install easyamiga (from a checkout)
-pipx install .            # or: pip install .
+On Ubuntu/Debian (Python 3.12+), **do not** use system `pip install` — the OS
+blocks it (`externally-managed-environment`). Use **pipx** (recommended) or a
+**venv** instead.
 
-# 2. Install Amiberry + WHDLoad and create the folder structure
+### Install easyamiga
+
+```bash
+# One-time: pipx + Tkinter for the GUI
+sudo apt install pipx python3-tk python3-venv
+pipx ensurepath
+# reopen the terminal if pipx ensurepath tells you to
+
+cd ~/Devel/easyamiga   # your checkout
+
+# Recommended: isolated app install (upgrades with pipx reinstall .)
+pipx install .
+
+# Alternative: development venv in the repo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U -e ".[dev]"
+```
+
+After `pipx install .`, the commands `easyamiga` and `easyamiga-gui` are on your
+PATH. To pick up changes after `git pull`:
+
+```bash
+cd ~/Devel/easyamiga
+pipx reinstall .
+```
+
+### Set up Amiberry and play
+
+```bash
+# Install Amiberry + WHDLoad and create the folder structure
 easyamiga install
 easyamiga init
 
-# 3. Drop games into ~/EasyAmiga/games, then open the app and click Play
+# Drop games into ~/EasyAmiga/games, then open the app
 easyamiga gui
 ```
 
-That's the easy path. The GUI scans your `games/` folder on open and shows every
-game as a big clickable tile — great for all ages.
+The GUI scans your `games/` folder on open and lists every game alphabetically.
 
 ### Prefer the terminal?
 
