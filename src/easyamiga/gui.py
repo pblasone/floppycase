@@ -264,7 +264,8 @@ class EasyAmigaGUI:
             return
 
         eff = library.effective(self.paths, config_path.stem)
-        joyports, options = library.launch_args(eff)
+        hardware = library.hardware_from_db(config_path.stem, self.db_by_name)
+        joyports, options = library.launch_args(eff, hardware=hardware)
         source, kind = resolve_launch(self.paths, config_path)
         try:
             if kind == "whdload" and source is not None:

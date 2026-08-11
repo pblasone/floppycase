@@ -261,7 +261,9 @@ def run(
         raise typer.Exit(1)
 
     eff = library.effective(paths, config_path.stem)
-    joyports, options = library.launch_args(eff)
+    _, db_by_name = install_mod.load_whdload_db()
+    hardware = library.hardware_from_db(config_path.stem, db_by_name)
+    joyports, options = library.launch_args(eff, hardware=hardware)
     source, kind = resolve_launch(paths, config_path)
     if kind == "whdload" and source is not None:
         # WHDLoad game: boot it via Amiberry's WHDLoad Booter (--autoload),

@@ -38,8 +38,8 @@ gives every game a clickable desktop icon.
   **notes** field to remember what you worked out for a game. A global
   **Settings** dialog sets the defaults for everything.
 - **Playable on a keyboard** – games launch with keyboard-as-joystick by
-  default (cursor keys + Left Ctrl to fire); switch to a gamepad or a different
-  layout per game or globally.
+  default (cursor keys + Space to fire); switch to numpad or a gamepad per game
+  or globally.
 
 ## Quick start
 
@@ -102,15 +102,16 @@ other than `~/EasyAmiga`.
 Click the cog on a game tile (or set global defaults from the toolbar
 **Settings** button) to adjust:
 
-- **Controls** – `keyboard-arrows` (cursor keys + Left Ctrl/Alt fire),
-  `keyboard-numpad`, or `gamepad` (use a detected USB controller).
+- **Controls** – `keyboard-arrows` (cursor keys + Space fire; CD32 titles get
+  the matching CD32 keyboard map automatically), `keyboard-numpad`, or `gamepad`
+  (use a detected USB controller).
 - **Fullscreen** and **Window scale** (1x/2x/3x).
 - **Filter** – `none` or a built-in `crt` shader.
 - **Notes** – free text saved per game, so you can jot down anything you
   discovered about running it.
 
 These are stored in `~/EasyAmiga/library.json` and applied at launch as Amiberry
-options (`-J` for controls, `-s key=value` for display). A game's settings
+``-s key=value`` options (joyports, display, pause behaviour). A game's settings
 override the global defaults; leave a field on `default` to inherit.
 
 ## How model auto-configuration works

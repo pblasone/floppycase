@@ -34,13 +34,39 @@ def test_defaults_and_overrides_roundtrip(tmp_path):
 
 
 def test_launch_args_mapping(tmp_path):
-    joy, opts = library.launch_args({"controls": "keyboard-arrows", "fullscreen": False, "scale": "2x", "filter": "none"})
-    assert joy == "Md"
+    joy, opts = library.launch_args(
+        {"controls": "keyboard-arrows", "fullscreen": False, "scale": "2x", "filter": "none"}
+    )
+    assert joy is None
+    assert opts["joyport0"] == "mouse"
+    assert opts["joyport1"] == "kbd4"
+    assert opts["joyport1keyboardoverride"] == "yes"
+    assert opts["input_keyboard_as_joystick_stop_keypresses"] == "no"
     assert opts["gfx_width"] == "1440" and opts["gfx_height"] == "1136"
     assert "gfx_fullscreen" not in opts
+    assert "joyport1mode" not in opts
+
+    joy, opts = library.launch_args(
+        {"controls": "keyboard-numpad", "fullscreen": False, "scale": "2x", "filter": "none"}
+    )
+    assert opts["joyport1"] == "kbd1"
+
+    joy, opts = library.launch_args(
+        {"controls": "keyboard-arrows", "fullscreen": False, "scale": "2x", "filter": "none"},
+        hardware={"port0": "cd32", "port1": "cd32"},
+    )
+    assert opts["joyport1mode"] == "cd32joy"
 
     joy, opts = library.launch_args({"controls": "gamepad", "fullscreen": True, "scale": "2x", "filter": "crt"})
-    assert joy is None                      # gamepad -> leave Amiberry's port setup
+    assert joy is None
+    assert "joyport1" not in opts
     assert opts["gfx_fullscreen"] == "fullwindow"
-    assert "gfx_width" not in opts          # fullscreen ignores window size
+    assert "gfx_width" not in opts
     assert opts["shader"] == "crt"
+
+
+def test_hardware_from_db_and_cd32_detection():
+    db = {"bubblebobble_v1.1_2518": {"hardware": {"port0": "cd32", "port1": "cd32"}}}
+    hw = library.hardware_from_db("BubbleBobble_v1.1_2518", db)
+    assert library.needs_cd32_joystick_mode(hw)
+    assert library.hardware_from_db("missing", db) is None

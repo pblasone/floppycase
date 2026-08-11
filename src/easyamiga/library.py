@@ -2,7 +2,7 @@
 
 easyamiga keeps a small JSON "library" (``~/EasyAmiga/library.json``) with global
 default settings plus per-game overrides and free-text notes. Settings are turned
-into Amiberry command-line options (``-s key=value`` and ``-J``) at launch time,
+into Amiberry command-line options (``-s key=value``) at launch time,
 so a game can be tuned without hand-editing `.uae` files.
 """
 
@@ -105,14 +105,51 @@ def title_for(stem: str, override_name: str | None, db_by_name: dict | None) -> 
 
 
 # --- settings -> Amiberry launch options --------------------------------------
-def launch_args(eff: dict) -> tuple[str | None, dict[str, str]]:
-    """Return (joyports for ``-J``, {config option: value} for ``-s``)."""
-    joy = {
-        "keyboard-arrows": "Md",  # port0=mouse, port1=keyboard layout D (cursor+LCtrl)
-        "keyboard-numpad": "Ma",  # port1=keyboard layout A (numpad)
-        "gamepad": None,          # leave Amiberry's own port setup (use detected pad)
-    }.get(eff.get("controls", "keyboard-arrows"), "Md")
+#: Amiberry ``joyportN=kbd*`` assignments (see Amiberry Input panel / cfgfile).
+_KEYBOARD_JOYPORT = {
+    # Keyrah layout: cursor keys + Space/Right Alt fire (matches many WHDLoad packs).
+    "keyboard-arrows": "kbd4",
+    # Layout A: numpad directions + 0/5 fire.
+    "keyboard-numpad": "kbd1",
+}
 
+#: Applied for keyboard play so focus changes and key-as-joystick do not block input.
+_KEYBOARD_HOST_OPTS = {
+    "inactive_pause": "false",
+    "active_not_captured_pause": "false",
+    "input_keyboard_as_joystick_stop_keypresses": "no",
+}
+
+
+def hardware_from_db(stem: str, db_by_name: dict | None) -> dict | None:
+    """Return WHDLoad ``hardware`` metadata for a game archive stem, if known."""
+    if not db_by_name:
+        return None
+    entry = db_by_name.get(stem.lower())
+    if not entry:
+        return None
+    hardware = entry.get("hardware")
+    return hardware if isinstance(hardware, dict) else None
+
+
+def needs_cd32_joystick_mode(hardware: dict | None) -> bool:
+    """True when the WHDLoad database says the game expects a CD32 pad."""
+    if not hardware:
+        return False
+    return hardware.get("port0") == "cd32" or hardware.get("port1") == "cd32"
+
+
+def launch_args(
+    eff: dict,
+    hardware: dict | None = None,
+) -> tuple[None, dict[str, str]]:
+    """Return launch options for ``-s key=value`` (joyports tuple is always ``None``).
+
+  Keyboard controls are applied via ``joyport0`` / ``joyport1`` *after* WHDLoad
+  auto-boot so they override the booter's default ``joy1`` assignment. CD32
+  titles also get ``joyport1mode=cd32joy`` so Amiberry maps keys to CD32
+  buttons (red/green/…) instead of a plain joystick fire bit.
+    """
     opts: dict[str, str] = {}
     if eff.get("fullscreen"):
         opts["gfx_fullscreen"] = "fullwindow"
@@ -125,4 +162,17 @@ def launch_args(eff: dict) -> tuple[str | None, dict[str, str]]:
             opts["gfx_correct_aspect"] = "true"
     if eff.get("filter") == "crt":
         opts["shader"] = "crt"
-    return joy, opts
+
+    controls = eff.get("controls", "keyboard-arrows")
+    if controls == "gamepad":
+        return None, opts
+
+    kbd = _KEYBOARD_JOYPORT.get(controls, _KEYBOARD_JOYPORT["keyboard-arrows"])
+    opts.update(_KEYBOARD_HOST_OPTS)
+    # Joyport overrides last so they win over any WHDLoad cached ``.uae`` config.
+    opts["joyport0"] = "mouse"
+    opts["joyport1"] = kbd
+    opts["joyport1keyboardoverride"] = "yes"
+    if needs_cd32_joystick_mode(hardware):
+        opts["joyport1mode"] = "cd32joy"
+    return None, opts
