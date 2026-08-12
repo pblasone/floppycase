@@ -57,7 +57,7 @@ ROW_H = 38
 ROW_BATCH = 30
 INPUT_H = 30
 LABEL_W = 18
-PLAY_SIZE = 26
+PLAY_SIZE = 22
 SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -205,7 +205,7 @@ class EasyAmigaGUI:
         btn = tk.Button(
             parent, text=text, command=command, bg=TOOLBAR_BTN, fg=TEXT,
             activebackground=CARD_HOVER, activeforeground=TEXT,
-            relief="flat", font=("Sans", 10), padx=10, pady=6,
+            relief="flat", font=("Sans", 10), padx=10, pady=(5, 9),
             cursor="hand2", borderwidth=0, highlightthickness=0,
             highlightbackground=TOOLBAR_BTN, highlightcolor=TOOLBAR_BTN,
         )
@@ -625,7 +625,6 @@ class EasyAmigaGUI:
         offset_v = tk.StringVar(value=_blank_default(d.get("screen_offset_v", "default")))
         video_std = tk.StringVar(value=d.get("video_standard", "default"))
         line_mode = tk.StringVar(value=d.get("line_mode", "default"))
-        vert_off = tk.StringVar(value=_blank_default(d.get("vertical_offset", "default")))
 
         widgets = []
         self._section_label(body, "Display")
@@ -638,7 +637,6 @@ class EasyAmigaGUI:
         widgets.append(self._dropdown(body, "Center vertical", center_v, SCREEN_CENTER_CHOICES))
         widgets.append(self._entry_row(body, "Offset horizontal", offset_h))
         widgets.append(self._entry_row(body, "Offset vertical", offset_v))
-        widgets.append(self._entry_row(body, "Vertical offset", vert_off))
 
         self._section_label(body, "Input")
         widgets.append(self._dropdown(body, "Controls", controls, CONTROL_CHOICES, width=22))
@@ -661,7 +659,6 @@ class EasyAmigaGUI:
                 "screen_offset_v": offset_v.get().strip() or "default",
                 "video_standard": video_std.get(),
                 "line_mode": line_mode.get(),
-                "vertical_offset": vert_off.get().strip() or "default",
             })
             self._invalidate_library_cache()
             win.destroy()
@@ -712,7 +709,6 @@ class EasyAmigaGUI:
         offset_v = tk.StringVar(value=library.display_entry_value(g, defaults, "screen_offset_v"))
         video_std = tk.StringVar(value=library.display_value(g, defaults, "video_standard"))
         line_mode = tk.StringVar(value=library.display_value(g, defaults, "line_mode"))
-        vert_off = tk.StringVar(value=library.display_entry_value(g, defaults, "vertical_offset"))
 
         widgets = []
         self._section_label(body, "Display")
@@ -751,10 +747,6 @@ class EasyAmigaGUI:
         widgets.append(self._entry_row(
             body, "Offset vertical", offset_v,
             inherited=library.field_inherited(g, "screen_offset_v"),
-        ))
-        widgets.append(self._entry_row(
-            body, "Vertical offset", vert_off,
-            inherited=library.field_inherited(g, "vertical_offset"),
         ))
 
         self._section_label(body, "Input")
@@ -820,9 +812,6 @@ class EasyAmigaGUI:
                 ),
                 "line_mode": library.store_if_matches_global(
                     line_mode.get(), defaults, "line_mode",
-                ),
-                "vertical_offset": library.store_if_matches_global(
-                    vert_off.get().strip(), defaults, "vertical_offset",
                 ),
                 "fullscreen_choice": fs_choice,
                 "fullscreen": fs_val,
@@ -902,11 +891,13 @@ class EasyAmigaGUI:
             cursor="hand2", highlightthickness=0, bd=0,
         )
         box.pack_propagate(False)
+        box.grid_rowconfigure(0, weight=1)
+        box.grid_columnconfigure(0, weight=1)
         icon = tk.Label(
             box, text="\u25b8", bg=PLAY_FILL, fg=PLAY_FG,
-            font=("Sans", 12, "bold"), cursor="hand2",
+            font=("Sans", 10, "bold"), cursor="hand2",
         )
-        icon.place(relx=0.5, rely=0.5, anchor="center")
+        icon.grid(row=0, column=0, padx=(1, 0))
 
         def on_click(_event=None):
             command()
@@ -915,7 +906,6 @@ class EasyAmigaGUI:
         icon.bind("<Button-1>", on_click)
 
         def _paint(_bg: str) -> None:
-            # Keep the play control green on row hover.
             pass
 
         return box, _paint
