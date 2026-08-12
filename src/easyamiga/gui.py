@@ -57,7 +57,8 @@ ROW_H = 38
 ROW_BATCH = 30
 INPUT_H = 30
 LABEL_W = 18
-PLAY_SIZE = 22
+PLAY_SIZE = 24
+PLAY_PAD = 3  # horizontal inset of the icon inside the green square
 SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -891,19 +892,19 @@ class EasyAmigaGUI:
             cursor="hand2", highlightthickness=0, bd=0,
         )
         box.pack_propagate(False)
-        box.grid_rowconfigure(0, weight=1)
-        box.grid_columnconfigure(0, weight=1)
+        inner = tk.Frame(box, bg=PLAY_FILL, cursor="hand2")
+        inner.pack(expand=True, fill="both", padx=PLAY_PAD, pady=2)
         icon = tk.Label(
-            box, text="\u25b8", bg=PLAY_FILL, fg=PLAY_FG,
-            font=("Sans", 10, "bold"), cursor="hand2",
+            inner, text="\u25b8", bg=PLAY_FILL, fg=PLAY_FG,
+            font=("Sans", 9, "bold"), cursor="hand2",
         )
-        icon.grid(row=0, column=0, padx=(1, 0))
+        icon.pack(expand=True)
 
         def on_click(_event=None):
             command()
 
-        box.bind("<Button-1>", on_click)
-        icon.bind("<Button-1>", on_click)
+        for w in (box, inner, icon):
+            w.bind("<Button-1>", on_click)
 
         def _paint(_bg: str) -> None:
             pass
@@ -920,7 +921,7 @@ class EasyAmigaGUI:
         self._row_by_stem[stem] = row
 
         play_wrap = tk.Frame(row, bg=CARD)
-        play_wrap.pack(side="left", padx=(10, 12), pady=5)
+        play_wrap.pack(side="left", padx=(12, 14), pady=6)
         play, paint_play = self._square_play_button(
             play_wrap, lambda p=config_path: self.play(p),
         )
@@ -943,7 +944,7 @@ class EasyAmigaGUI:
         cog.bind("<Button-1>", lambda e, p=config_path: self.open_game_settings(p))
         self._row_widgets[stem]["cog"] = cog
 
-        for widget in (row, info, play):
+        for widget in (row, info, play_wrap, play):
             widget.bind("<Double-Button-1>", lambda e, p=config_path: self.play(p))
 
         def on_enter(_):
