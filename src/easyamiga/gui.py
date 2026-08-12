@@ -205,11 +205,11 @@ class EasyAmigaGUI:
         btn = tk.Button(
             parent, text=text, command=command, bg=TOOLBAR_BTN, fg=TEXT,
             activebackground=CARD_HOVER, activeforeground=TEXT,
-            relief="flat", font=("Sans", 10), padx=10, pady=(5, 9),
+            relief="flat", font=("Sans", 10), padx=10, pady=6,
             cursor="hand2", borderwidth=0, highlightthickness=0,
             highlightbackground=TOOLBAR_BTN, highlightcolor=TOOLBAR_BTN,
         )
-        btn.pack(side="left", padx=4)
+        btn.pack(side="left", padx=4, pady=(4, 7))
         return btn
 
     def _build_list(self) -> None:
