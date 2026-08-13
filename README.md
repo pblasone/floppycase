@@ -1,13 +1,8 @@
-# easyamiga
+# floppycase
 
 **Plug-and-play Amiga gaming on Linux.**
 
-Getting classic Amiga games running on Linux normally means a "desert walk" of
-emulators, Kickstart ROMs, WHDLoad, hard-drive images and cryptic `.uae`
-configuration. `easyamiga` collapses that into a few commands: it installs the
-[Amiberry](https://github.com/BlitterStudio/amiberry) emulator, sets up a clean
-directory structure, auto-configures the right Amiga model for your ROM, and lets
-you add favorite games to your desktop app menu when you want them there.
+Doing a manual setup for playing classic Amiga games on Linux can be a long and painstaking process involving installing and configuring several libraries. With `FloppyCase` the hard work is already done. Just install the app, add your games and purchased Amiga ROMs, and start playing.
 
 > Goal: go from *nothing* to *playing an Amiga game* with as little friction as
 > possible.
