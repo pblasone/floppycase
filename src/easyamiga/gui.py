@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import subprocess
 import threading
+from importlib import resources
 from pathlib import Path
 from typing import Optional
 
@@ -60,6 +61,7 @@ LABEL_W = 18
 PLAY_SIZE = 24
 PLAY_PAD = 3  # horizontal inset of the icon inside the green square
 SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+HEADER_LOGO = "gui-logo-top.png"
 
 
 def _blank_default(value: str) -> str:
@@ -105,6 +107,7 @@ class EasyAmigaGUI:
         self._pending_configs: list[Path] = []
         self._scanning = False
         self._spin_index = 0
+        self._header_logo_img: tk.PhotoImage | None = None
 
         self.root = tk.Tk()
         self.root.title("easyamiga")
@@ -176,9 +179,8 @@ class EasyAmigaGUI:
         header = tk.Frame(self.root, bg=BG)
         header.pack(fill="x", padx=18, pady=(22, 14))
 
-        badge = tk.Canvas(header, width=44, height=44, bg=BG, highlightthickness=0)
-        badge.pack(side="left")
-        self._draw_boing(badge, 22, 22, 18)
+        logo = tk.Label(header, image=self._header_logo(), bg=BG, borderwidth=0)
+        logo.pack(side="left")
 
         text = tk.Frame(header, bg=BG)
         text.pack(side="left", padx=12)
@@ -186,6 +188,15 @@ class EasyAmigaGUI:
                  font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
         tk.Label(text, text="Click a game to play it on your Amiga",
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
+
+    def _header_logo(self) -> tk.PhotoImage:
+        """Load the header PNG from packaged assets (keep a reference on ``self``)."""
+        if self._header_logo_img is not None:
+            return self._header_logo_img
+        source = resources.files("easyamiga.assets").joinpath(HEADER_LOGO)
+        with resources.as_file(source) as path:
+            self._header_logo_img = self.tk.PhotoImage(file=str(path))
+        return self._header_logo_img
 
     def _default_model(self) -> str:
         return default_model_key(detect_roms(self.roms_dir), DEFAULT_MODEL)
@@ -262,20 +273,6 @@ class EasyAmigaGUI:
         self.status = tk.Label(self.root, text="", bg="#020617", fg=MUTED,
                                anchor="w", font=("Sans", 9), padx=12, pady=4)
         self.status.pack(fill="x", side="bottom")
-
-    # --- drawing -----------------------------------------------------------
-    def _draw_boing(self, canvas, cx, cy, r) -> None:
-        canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill=ACCENT,
-                           outline=ACCENT_DK, width=2)
-        step = r // 2
-        for i, dx in enumerate(range(-r, r, step)):
-            for j, dy in enumerate(range(-r, r, step)):
-                if (i + j) % 2 == 0:
-                    continue
-                x0, y0 = cx + dx, cy + dy
-                if (dx + step / 2) ** 2 + (dy + step / 2) ** 2 <= r * r:
-                    canvas.create_rectangle(x0, y0, x0 + step, y0 + step,
-                                           fill="#ffffff", outline="")
 
     # --- library cache (avoid re-reading library.json per row) ------------
     def _invalidate_library_cache(self) -> None:
