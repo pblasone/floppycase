@@ -71,8 +71,9 @@ def _usable_or_warn(rom: Optional[DetectedRom]) -> Optional[DetectedRom]:
         console.print(
             f"[yellow]ROM '{rom.path.name}' is an encrypted Amiga Forever ROM and no "
             "rom.key was found, so it can't be used. Falling back to the free AROS ROM.\n"
-            "Fix: copy 'rom.key' from Amiga Forever into ~/FloppyCase/roms (floppycase will "
-            "decode it), or run Amiga Forever once to get decrypted .rom files.[/yellow]"
+            "Fix: copy 'rom.key' from Amiga Forever into the Kickstart ROMs folder "
+            "(see 'floppycase doctor'), or run Amiga Forever once to get decrypted "
+            ".rom files.[/yellow]"
         )
         return None
     return rom
@@ -99,13 +100,14 @@ def version() -> None:
 
 def _show_layout(paths: Paths, *, title: str | None = None) -> None:
     """Print the user-facing FloppyCase directory layout."""
+    roms_dir = _roms_dir(paths)
     table = Table(
         title=title or f"FloppyCase ready at {paths.base}",
         show_header=True,
     )
     table.add_column("Directory")
     table.add_column("Purpose")
-    table.add_row(str(paths.roms), "Kickstart ROMs (drop them here, with rom.key if any)")
+    table.add_row(str(roms_dir), "Kickstart ROMs (drop them here, with rom.key if any)")
     table.add_row(str(paths.games), "Games: WHDLoad .lha packs / ADFs")
     table.add_row(str(paths.workbench), "Workbench / boot content")
     table.add_row(str(paths.configs), "Generated machine configs")
@@ -125,10 +127,11 @@ def init(base: Optional[str] = BaseOption) -> None:
         except Exception:
             pass
 
+    roms_dir = _roms_dir(paths)
     _show_layout(paths, title=f"FloppyCase initialised at {paths.base}")
     console.print(
         f"\nDrop games into [bold]{paths.games}[/bold] and Kickstart ROMs into "
-        f"[bold]{paths.roms}[/bold], then open FloppyCase from your app menu "
+        f"[bold]{roms_dir}[/bold], then open FloppyCase from your app menu "
         "or run [bold]floppycase gui[/bold]."
     )
     if not amiberry.is_installed():
@@ -163,11 +166,16 @@ def install(
 
     # `install_all` already creates the directory tree; show it so users know
     # where to put games and ROMs without a separate `init` step.
+    roms_dir = _roms_dir(paths)
     _show_layout(paths)
     console.print(
         f"\nNext: add games to [bold]{paths.games}[/bold] and Kickstart ROMs to "
-        f"[bold]{paths.roms}[/bold], then open FloppyCase from your app menu "
+        f"[bold]{roms_dir}[/bold], then open FloppyCase from your app menu "
         "or run [bold]floppycase gui[/bold]."
+    )
+    console.print(
+        "\nIf the menu still shows a generic icon, log out and back in "
+        "(or run [bold]floppycase install[/bold] again after upgrading)."
     )
 
 

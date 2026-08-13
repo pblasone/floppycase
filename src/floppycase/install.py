@@ -154,40 +154,128 @@ def install_whdload(paths: Paths, log=print) -> bool:
 
 
 # --- Icon ----------------------------------------------------------------------
+_APP_ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
+_TRAY_ICON_SIZES = (16, 22, 24, 32)
+
+
+def _refresh_desktop_caches(icon_theme_root: Path, log=print) -> None:
+    """Ask GTK / xdg to notice newly installed icons and .desktop files."""
+    # Ensure a minimal index.theme so hicolor lookups work for this user tree.
+    index = icon_theme_root / "index.theme"
+    directories = ["scalable/apps", "scalable/status"]
+    sections = [
+        "[Icon Theme]",
+        "Name=Hicolor",
+        "Comment=Fallback icon theme",
+        "",
+        "[scalable/apps]",
+        "Size=128",
+        "Type=Scalable",
+        "MinSize=1",
+        "MaxSize=512",
+        "Context=Applications",
+        "",
+        "[scalable/status]",
+        "Size=22",
+        "Type=Scalable",
+        "MinSize=1",
+        "MaxSize=512",
+        "Context=Status",
+        "",
+    ]
+    for size in _APP_ICON_SIZES:
+        directories.append(f"{size}x{size}/apps")
+        sections += [
+            f"[{size}x{size}/apps]",
+            f"Size={size}",
+            "Type=Fixed",
+            "Context=Applications",
+            "",
+        ]
+        directories.append(f"{size}x{size}/status")
+        sections += [
+            f"[{size}x{size}/status]",
+            f"Size={size}",
+            "Type=Fixed",
+            "Context=Status",
+            "",
+        ]
+    sections.insert(3, "Directories=" + ",".join(directories))
+    index.write_text("\n".join(sections), encoding="utf-8")
+
+    cache_cmd = shutil.which("gtk-update-icon-cache")
+    if cache_cmd:
+        result = _run(
+            [cache_cmd, "-f", "-t", str(icon_theme_root)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            log("Icon cache refreshed")
+        else:
+            log("Icon cache refresh skipped (gtk-update-icon-cache reported an error)")
+
+    desk_cmd = shutil.which("update-desktop-database")
+    if desk_cmd:
+        apps = desktop.applications_dir()
+        apps.mkdir(parents=True, exist_ok=True)
+        _run(
+            [desk_cmd, str(apps)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
 def install_icon(log=print) -> Path:
     """Install FloppyCase icons into the user icon theme and return the app icon path.
 
-    Installs:
-    * ``floppycase.svg`` – application / start-menu icon
-    * ``floppycase-tray.svg`` – monochrome tray/panel glyph for Mint/Ubuntu
+    Installs SVG + PNG sizes (Mint/Cinnamon often ignores scalable-only icons)
+    and refreshes the icon / desktop-file caches.
     """
-    base = Path.home() / ".local" / "share" / "icons" / "hicolor"
-    apps_dir = base / "scalable" / "apps"
-    panel_dir = base / "scalable" / "status"
-    apps_dir.mkdir(parents=True, exist_ok=True)
-    panel_dir.mkdir(parents=True, exist_ok=True)
-
+    base = desktop.icons_home()
     assets = resources.files("floppycase.assets")
-    app_target = apps_dir / "floppycase.svg"
-    tray_target = panel_dir / "floppycase-tray.svg"
-    # Also publish the tray glyph under apps/ so launchers can refer to it by name.
-    tray_app_target = apps_dir / "floppycase-tray.svg"
+    icon_assets = assets.joinpath("icons")
 
-    app_target.write_bytes(assets.joinpath("floppycase.svg").read_bytes())
+    apps_scalable = base / "scalable" / "apps"
+    status_scalable = base / "scalable" / "status"
+    apps_scalable.mkdir(parents=True, exist_ok=True)
+    status_scalable.mkdir(parents=True, exist_ok=True)
+
+    app_svg = apps_scalable / "floppycase.svg"
+    tray_svg = status_scalable / "floppycase-tray.svg"
+    app_svg.write_bytes(assets.joinpath("floppycase.svg").read_bytes())
     tray_bytes = assets.joinpath("floppycase-tray.svg").read_bytes()
-    tray_target.write_bytes(tray_bytes)
-    tray_app_target.write_bytes(tray_bytes)
-    log(f"Icon installed at {app_target}")
-    log(f"Tray icon installed at {tray_target}")
-    return app_target
+    tray_svg.write_bytes(tray_bytes)
+    (apps_scalable / "floppycase-tray.svg").write_bytes(tray_bytes)
+
+    for size in _APP_ICON_SIZES:
+        target_dir = base / f"{size}x{size}" / "apps"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        src = icon_assets.joinpath(f"floppycase-{size}.png")
+        (target_dir / "floppycase.png").write_bytes(src.read_bytes())
+
+    for size in _TRAY_ICON_SIZES:
+        target_dir = base / f"{size}x{size}" / "status"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        src = icon_assets.joinpath(f"floppycase-tray-{size}.png")
+        (target_dir / "floppycase-tray.png").write_bytes(src.read_bytes())
+
+    _refresh_desktop_caches(base, log=log)
+
+    preferred = desktop.installed_icon_path() or app_svg
+    log(f"Icon installed at {preferred}")
+    log(f"Tray icon installed at {tray_svg}")
+    return preferred
 
 
 def install_app_launcher(log=print) -> Path:
-    """Install a desktop-menu launcher for the floppycase GUI."""
+    """Install a desktop-menu launcher for the FloppyCase GUI."""
+    # Caller should run install_icon() first so Icon= can be an absolute PNG path.
     target = desktop.write_app_launcher()
+    _refresh_desktop_caches(desktop.icons_home(), log=lambda *_: None)
     log(f"App launcher installed at {target}")
+    log(f"Launcher Icon= {desktop.icon_for_desktop()}")
     return target
-
 
 # --- Kickstart / WHDLoad booter wiring -----------------------------------------
 def _looks_like_rom(path: Path) -> bool:
@@ -198,10 +286,10 @@ def _looks_like_rom(path: Path) -> bool:
 
 
 def effective_roms_dir(paths: Paths) -> Path:
-    """The directory floppycase uses for Kickstart ROMs.
+    """The directory FloppyCase uses for Kickstart ROMs.
 
-    When Amiberry is installed we use *its* ROM folder directly (single source
-    of truth, no copying), otherwise the local ``~/FloppyCase/roms`` fallback.
+    Single source of truth: Amiberry's own ROM folder when the emulator is
+    installed. Falls back to ``~/FloppyCase/roms`` only before Amiberry exists.
     """
     if amiberry.is_installed():
         return amiberry.rom_path()
@@ -209,9 +297,10 @@ def effective_roms_dir(paths: Paths) -> Path:
 
 
 def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
-    """Copy ROMs/rom.key from the legacy ``~/FloppyCase/roms`` into ``dest``.
+    """Copy ROMs/rom.key from a leftover ``~/FloppyCase/roms`` into ``dest``.
 
-    Only copies files that aren't already present (by name); never deletes.
+    Older builds asked users to drop ROMs under the FloppyCase tree; we still
+    migrate those once into Amiberry's folder. Never deletes the originals.
     """
     legacy = paths.roms
     if not legacy.exists() or legacy.resolve() == dest.resolve():
@@ -244,9 +333,8 @@ def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
 def sync_kickstarts(paths: Paths, log=print) -> int:
     """Ensure Kickstart ROMs are present and usable in Amiberry's ROM folder.
 
-    Migrates any legacy floppycase ROMs into Amiberry's folder, then decodes
-    encoded Amiga Forever ROMs in place (into a ``floppycase-decoded`` subfolder
-    that Amiberry's recursive scan also reads). Returns the count of usable ROMs.
+    Migrates any leftover ``~/FloppyCase/roms`` files into Amiberry's folder,
+    then decodes encoded Amiga Forever ROMs in place. Returns usable ROM count.
     """
     if not amiberry.is_installed():
         return 0

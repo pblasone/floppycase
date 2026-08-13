@@ -59,7 +59,11 @@ class Paths:
     # --- managed sub-directories -------------------------------------------------
     @property
     def roms(self) -> Path:
-        """Kickstart ROMs live here; Amiberry scans it recursively."""
+        """Legacy/fallback ROM folder under the FloppyCase base.
+
+        Prefer Amiberry's ROM directory (see ``install.effective_roms_dir``).
+        This path is kept so older EasyAmiga/FloppyCase drops can be migrated.
+        """
         return self.base / "roms"
 
     @property
@@ -88,9 +92,10 @@ class Paths:
         return self.base / "downloads"
 
     def all_dirs(self) -> list[Path]:
+        # Kickstart ROMs live in Amiberry's ROM folder once the emulator is
+        # installed, so we do not create ~/FloppyCase/roms for new setups.
         return [
             self.base,
-            self.roms,
             self.games,
             self.workbench,
             self.configs,

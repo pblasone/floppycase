@@ -8,6 +8,9 @@ def test_resolve_and_ensure(tmp_path):
     paths.ensure()
     for directory in paths.all_dirs():
         assert directory.is_dir()
+    # Kickstarts live in Amiberry's ROM folder; we no longer create this by default.
+    assert paths.roms not in paths.all_dirs()
+    assert not paths.roms.exists()
 
 
 def test_config_file_suffix(tmp_path):

@@ -32,8 +32,9 @@ FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and t
 
 - **One-command setup** – installs the emulator backend, WHDLoad support, the
   `~/FloppyCase` folder layout, and a desktop launcher.
-- **Tidy directory layout** – a single `~/FloppyCase` folder with `roms/`,
-  `games/`, `workbench/`, `configs/`, `whdload/` and `downloads/`.
+- **Tidy directory layout** – a single `~/FloppyCase` folder with `games/`,
+  `workbench/`, `configs/`, `whdload/` and `downloads/`. Kickstart ROMs live in
+  the emulator's ROM folder (one place only).
 - **Automatic configuration** – detects your Kickstart ROM by CRC32 and picks
   the matching model (**A500** or **A1200**) with the correct chipset/CPU and
   the **maximum recommended Fast RAM** (8 MB). If no ROM is present it falls
@@ -103,18 +104,23 @@ Without original Kickstart ROMs, FloppyCase falls back to the built-in **AROS**
 ROM. That is enough to start a basic Workbench-like environment, but **most
 commercial games will not run correctly** until real Kickstarts are installed.
 
+Kickstart ROMs are stored in **one place**: the emulator's ROM folder (usually
+`~/Amiberry/ROMs/`). FloppyCase does not keep a second copy under
+`~/FloppyCase`.
+
 The legal way to obtain Kickstart ROMs is
 [Amiga Forever](https://www.amigaforever.com/) from Cloanto.
 
 1. Install Amiga Forever and locate its ROMs folder (it contains the Kickstart
    files and usually a `rom.key`).
-2. Copy **everything** from that folder — including `rom.key` — into
-   `~/FloppyCase/roms`.
+2. Copy **everything** from that folder — including `rom.key` — into the ROM
+   folder shown by `floppycase doctor` / `floppycase install` (typically
+   `~/Amiberry/ROMs/`).
 3. Run `floppycase sync-roms` (or simply launch a game); FloppyCase decodes
    Cloanto-encoded ROMs automatically when `rom.key` is present.
 
-`floppycase doctor` prints the ROM folder in use and warns about encrypted ROMs
-that still need a key.
+`floppycase doctor` prints the exact ROM folder in use and warns about encrypted
+ROMs that still need a key.
 
 ## Start gaming
 
@@ -131,7 +137,7 @@ row for per-game controls, display options, and notes.
 floppycase config --model a500
 floppycase run a500
 
-# Or drop a Kickstart ROM into ~/FloppyCase/roms first, then:
+# Or drop a Kickstart ROM into the emulator ROM folder first, then:
 floppycase config          # auto-detects the ROM and picks the model
 
 # Scan the games folder and register everything found
@@ -204,9 +210,9 @@ Original **Kickstart ROMs and Workbench are copyrighted** and are *not*
 distributed with FloppyCase. The legal way to obtain them is
 [Amiga Forever](https://www.amigaforever.com/) from Cloanto.
 
-Put ROMs in **`~/FloppyCase/roms`** (including `rom.key` when Amiga Forever
-ships encoded files). FloppyCase prepares them for the emulator automatically;
-`floppycase doctor` prints the folder currently in use.
+Put ROMs in the emulator ROM folder (typically **`~/Amiberry/ROMs/`**, including
+`rom.key` when Amiga Forever ships encoded files). That is the single source of
+truth — `floppycase doctor` prints the folder currently in use.
 
 For a fully free setup, FloppyCase uses the open-source
 [AROS](https://aros.org/) Kickstart replacement.
@@ -215,7 +221,7 @@ For a fully free setup, FloppyCase uses the open-source
 
 Amiga Forever often ships ROMs in Cloanto's *encoded* form (an `AMIROMTYPE1`
 header, scrambled with `rom.key`). Those files cannot be booted until they are
-decoded. If you copy `rom.key` into `~/FloppyCase/roms` alongside the ROMs,
+decoded. If you copy `rom.key` into the ROM folder alongside the ROMs,
 FloppyCase decodes them automatically. If you don't have a `rom.key`, run Amiga
 Forever once (newer versions decrypt the ROMs on first launch) and copy the
 resulting `.rom` files instead. `floppycase doctor` flags encrypted ROMs and
@@ -259,8 +265,12 @@ Common fixes:
 
 - GUI missing / Tk errors → `sudo apt install python3-tk`, then
   `pipx install --force git+https://github.com/pblasone/floppycase.git`
-- Encrypted Amiga Forever ROMs → copy `rom.key` into `~/FloppyCase/roms`, then
-  `floppycase sync-roms`
+  and re-run `floppycase install`
+- Generic cog icon in the Mint/Ubuntu menu → upgrade, then
+  `floppycase install` again (refreshes PNG icons + the `.desktop` file). Log
+  out and back in if the menu still caches the old icon.
+- Encrypted Amiga Forever ROMs → copy `rom.key` into the ROM folder from
+  `floppycase doctor`, then `floppycase sync-roms`
 - Stale WHDLoad boot settings → `floppycase clean-configs <game>`
 - Wrong data directory → set `FLOPPYCASE_HOME` or pass `--base`
 

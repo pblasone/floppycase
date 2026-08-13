@@ -188,6 +188,7 @@ def test_migrate_legacy_roms_copies_once(tmp_path):
 
     paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
+    paths.roms.mkdir(parents=True, exist_ok=True)
     (paths.roms / "kick.rom").write_bytes(b"\x00" * (512 * 1024))
     (paths.roms / "rom.key").write_bytes(b"key")
     dest = tmp_path / "Amiberry" / "ROMs"

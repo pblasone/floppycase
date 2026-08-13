@@ -67,7 +67,7 @@ def add_game(
     name: str | None = None,
     rom: DetectedRom | None = None,
     create_launcher: bool = False,
-    icon: str = "floppycase",
+    icon: str | None = None,
     roms_dir: Path | None = None,
 ) -> Game:
     """Register a game: store it, generate a config, and add a desktop launcher."""
@@ -124,7 +124,7 @@ def set_menu_launcher(
     key: str,
     enabled: bool,
     display_title: str | None = None,
-    icon: str = "floppycase",
+    icon: str | None = None,
 ) -> Path | None:
     """Opt a game in or out of the desktop application menu."""
     library.set_game(paths, key, {"menu_launcher": enabled})

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "floppycase"
-version = "0.2.0"
+version = "0.2.1"
 description = "Plug-and-play setup for playing Amiga games on Linux with Amiberry"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,7 +34,7 @@ Changelog = "https://github.com/pblasone/floppycase/blob/main/CHANGELOG.md"
 where = ["src"]
 
 [tool.setuptools.package-data]
-floppycase = ["assets/*"]
+floppycase = ["assets/*", "assets/icons/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

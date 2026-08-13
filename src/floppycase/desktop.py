@@ -14,6 +14,7 @@ from pathlib import Path
 
 APP_ID_PREFIX = "floppycase-game-"
 APP_DESKTOP_ID = "floppycase"
+ICON_NAME = "floppycase"
 
 
 def floppycase_exe() -> str:
@@ -36,6 +37,39 @@ def applications_dir() -> Path:
     data_home = os.environ.get("XDG_DATA_HOME")
     base = Path(data_home).expanduser() if data_home else Path.home() / ".local" / "share"
     return base / "applications"
+
+
+def icons_home() -> Path:
+    """Per-user hicolor icon theme root."""
+    data_home = os.environ.get("XDG_DATA_HOME")
+    base = Path(data_home).expanduser() if data_home else Path.home() / ".local" / "share"
+    return base / "icons" / "hicolor"
+
+
+def installed_icon_path() -> Path | None:
+    """Absolute path to the best installed FloppyCase app icon, if present."""
+    base = icons_home()
+    candidates = [
+        base / "128x128" / "apps" / f"{ICON_NAME}.png",
+        base / "64x64" / "apps" / f"{ICON_NAME}.png",
+        base / "48x48" / "apps" / f"{ICON_NAME}.png",
+        base / "scalable" / "apps" / f"{ICON_NAME}.svg",
+        base / "256x256" / "apps" / f"{ICON_NAME}.png",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def icon_for_desktop() -> str:
+    """Icon value for ``.desktop`` files.
+
+    Prefer an absolute path (reliable on Cinnamon/Mint). Fall back to the
+    theme icon name when icons have not been installed yet.
+    """
+    path = installed_icon_path()
+    return str(path) if path else ICON_NAME
 
 
 def desktop_file_path(slug: str) -> Path:
@@ -76,7 +110,7 @@ def render_desktop_entry(
 def write_launcher(
     display_name: str,
     exec_command: str,
-    icon: str,
+    icon: str | None = None,
     *,
     slug: str | None = None,
 ) -> Path:
@@ -86,7 +120,8 @@ def write_launcher(
     file_slug = slug or display_name
     target = desktop_file_path(file_slug)
     target.write_text(
-        render_desktop_entry(display_name, exec_command, icon), encoding="utf-8"
+        render_desktop_entry(display_name, exec_command, icon or icon_for_desktop()),
+        encoding="utf-8",
     )
     target.chmod(0o755)
     return target
@@ -104,8 +139,8 @@ def app_desktop_file_path() -> Path:
     return applications_dir() / f"{APP_DESKTOP_ID}.desktop"
 
 
-def write_app_launcher(icon: str = "floppycase") -> Path:
-    """Install a launcher for the floppycase GUI itself into the app menu."""
+def write_app_launcher(icon: str | None = None) -> Path:
+    """Install a launcher for the FloppyCase GUI itself into the app menu."""
     directory = applications_dir()
     directory.mkdir(parents=True, exist_ok=True)
     entry = "\n".join(
@@ -115,10 +150,10 @@ def write_app_launcher(icon: str = "floppycase") -> Path:
             "Name=FloppyCase",
             "Comment=Play Amiga games the easy way",
             f"Exec={floppycase_exe()} gui",
-            f"Icon={icon}",
+            f"Icon={icon or icon_for_desktop()}",
             "Terminal=false",
             "Categories=Game;Emulator;Utility;",
-            "Keywords=amiga;amiberry;emulator;games;",
+            "Keywords=amiga;amiberry;emulator;games;floppycase;",
             "",
         ]
     )

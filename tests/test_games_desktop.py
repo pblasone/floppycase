@@ -217,8 +217,17 @@ def test_menu_launcher_ignores_orphan_desktop_file(tmp_path, monkeypatch):
 
 def test_app_launcher_written(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    from floppycase import install
+
+    install.install_icon(log=lambda *_: None)
     target = desktop.write_app_launcher()
     assert target.exists()
     text = target.read_text()
     assert "Name=FloppyCase" in text
     assert "gui" in text
+    # Mint/Cinnamon resolve theme names unreliably; we embed an absolute icon path.
+    assert "Icon=" in text
+    icon_line = next(line for line in text.splitlines() if line.startswith("Icon="))
+    icon_path = Path(icon_line.split("=", 1)[1])
+    assert icon_path.is_file()
+    assert icon_path.suffix in {".png", ".svg"}
