@@ -37,7 +37,7 @@ WHDLOAD_ARCHIVE_SUFFIXES = {".lha", ".lzh", ".lzx", ".zip"}
 
 app = typer.Typer(
     add_completion=False,
-    help="Plug-and-play Amiga gaming on Linux with Amiberry.",
+    help="Plug-and-play Amiga gaming on Linux.",
     no_args_is_help=True,
 )
 console = Console()
@@ -97,9 +97,26 @@ def version() -> None:
     console.print(f"FloppyCase {__version__}")
 
 
+def _show_layout(paths: Paths, *, title: str | None = None) -> None:
+    """Print the user-facing FloppyCase directory layout."""
+    table = Table(
+        title=title or f"FloppyCase ready at {paths.base}",
+        show_header=True,
+    )
+    table.add_column("Directory")
+    table.add_column("Purpose")
+    table.add_row(str(paths.roms), "Kickstart ROMs (drop them here, with rom.key if any)")
+    table.add_row(str(paths.games), "Games: WHDLoad .lha packs / ADFs")
+    table.add_row(str(paths.workbench), "Workbench / boot content")
+    table.add_row(str(paths.configs), "Generated machine configs")
+    table.add_row(str(paths.whdload), "WHDLoad support files")
+    table.add_row(str(paths.downloads), "Download cache")
+    console.print(table)
+
+
 @app.command()
 def init(base: Optional[str] = BaseOption) -> None:
-    """Create the floppycase directory structure."""
+    """Create the FloppyCase directory structure."""
     paths = _paths(base)
     paths.ensure()
     for step in (install_mod.install_icon, install_mod.install_app_launcher):
@@ -108,26 +125,16 @@ def init(base: Optional[str] = BaseOption) -> None:
         except Exception:
             pass
 
-    rdir = _roms_dir(paths)
-    table = Table(title=f"FloppyCase initialised at {paths.base}", show_header=True)
-    table.add_column("Directory")
-    table.add_column("Purpose")
-    table.add_row(str(rdir), "Kickstart ROMs (drop them here, with rom.key if any)")
-    table.add_row(str(paths.games), "Games: WHDLoad folders / ADFs")
-    table.add_row(str(paths.workbench), "Workbench / boot content")
-    table.add_row(str(paths.configs), "Generated Amiberry configs")
-    table.add_row(str(paths.whdload), "WHDLoad distribution")
-    table.add_row(str(paths.downloads), "Download cache")
-    console.print(table)
+    _show_layout(paths, title=f"FloppyCase initialised at {paths.base}")
+    console.print(
+        f"\nDrop games into [bold]{paths.games}[/bold] and Kickstart ROMs into "
+        f"[bold]{paths.roms}[/bold], then open FloppyCase from your app menu "
+        "or run [bold]floppycase gui[/bold]."
+    )
     if not amiberry.is_installed():
         console.print(
-            "\nNext: [bold]floppycase install[/bold] to install Amiberry, then "
-            "[bold]floppycase config[/bold] to create your first machine."
-        )
-    else:
-        console.print(
-            f"\nDrop Kickstart ROMs into [bold]{rdir}[/bold] (Amiberry's own ROM folder), "
-            "then [bold]floppycase gui[/bold] to play."
+            "\nTip: run [bold]floppycase install[/bold] once to finish setting up "
+            "the emulator and other dependencies."
         )
 
 
@@ -136,9 +143,9 @@ def install(
     base: Optional[str] = BaseOption,
     whdload: bool = typer.Option(True, help="Also download and unpack WHDLoad."),
 ) -> None:
-    """Install Amiberry and supporting packages."""
+    """Install dependencies, create ~/FloppyCase, and add the desktop launcher."""
     paths = _paths(base)
-    console.print(Panel.fit("Installing FloppyCase prerequisites", style="cyan"))
+    console.print(Panel.fit("Installing FloppyCase", style="cyan"))
     summary = install_mod.install_all(paths, log=console.print, with_whdload=whdload)
 
     table = Table(title="Install summary")
@@ -150,9 +157,18 @@ def install(
 
     if not summary.get("amiberry"):
         console.print(
-            "[yellow]Amiberry was not installed. See "
+            "[yellow]The emulator backend was not installed. See "
             "https://github.com/BlitterStudio/amiberry for manual instructions.[/yellow]"
         )
+
+    # `install_all` already creates the directory tree; show it so users know
+    # where to put games and ROMs without a separate `init` step.
+    _show_layout(paths)
+    console.print(
+        f"\nNext: add games to [bold]{paths.games}[/bold] and Kickstart ROMs to "
+        f"[bold]{paths.roms}[/bold], then open FloppyCase from your app menu "
+        "or run [bold]floppycase gui[/bold]."
+    )
 
 
 @app.command()

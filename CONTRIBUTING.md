@@ -17,14 +17,17 @@ pip install -U -e ".[dev]"
 pytest
 ```
 
-For a day-to-day install that puts `floppycase` on your PATH:
+For a normal user install that puts `floppycase` on your PATH (no local clone
+required):
 
 ```bash
 sudo apt install pipx python3-tk python3-venv
-pipx install .
-# after pulling changes:
-pipx reinstall .
+pipx ensurepath
+pipx install git+https://github.com/pblasone/floppycase.git
+floppycase install
 ```
+
+While developing from a checkout, `pipx install .` / `pipx reinstall .` also work.
 
 ## Pull requests
 

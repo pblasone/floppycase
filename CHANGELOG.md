@@ -19,6 +19,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 - Public-beta README sections: status banner, requirements, disclaimer, known
   limitations, troubleshooting, and support.
+- User-oriented install flow: `pipx install` from GitHub, then a single
+  `floppycase install` (creates `~/FloppyCase` — no separate `init` required).
 - Full GPL-3.0 license text plus third-party / trademark notes.
 - `SECURITY.md` (GitHub private vulnerability reporting), `CONTRIBUTING.md`,
   and this changelog.

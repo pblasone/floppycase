@@ -6,11 +6,10 @@
 **Plug-and-play Amiga gaming on Linux.**
 
 Getting classic Amiga games running on Linux normally means a "desert walk" of
-emulators, Kickstart ROMs, WHDLoad, hard-drive images and cryptic `.uae`
-configuration. `floppycase` collapses that into a few commands: it installs the
-[Amiberry](https://github.com/BlitterStudio/amiberry) emulator, sets up a clean
-directory structure, auto-configures the right Amiga model for your ROM, and lets
-you add favorite games to your desktop app menu when you want them there.
+emulators, Kickstart ROMs, WHDLoad, hard-drive images and cryptic config files.
+`floppycase` collapses that into a few commands: it sets up everything you need,
+auto-configures the right Amiga model for your ROM, and lets you add favorite
+games to your desktop app menu when you want them there.
 
 > Goal: go from *nothing* to *playing an Amiga game* with as little friction as
 > possible.
@@ -19,26 +18,24 @@ you add favorite games to your desktop app menu when you want them there.
 
 - Linux desktop (developed and tested on **Ubuntu/Debian**)
 - **Python 3.10+**
-- `pipx` (recommended) or a virtualenv — system `pip install` is blocked on
-  modern Debian/Ubuntu (`externally-managed-environment`)
+- `pipx` — system `pip install` is blocked on modern Debian/Ubuntu
+  (`externally-managed-environment`)
 - `python3-tk` for the GUI
-- Network access on first `floppycase install` (Amiberry apt repo + WHDLoad)
+- Network access the first time you run `floppycase install`
 
 ## What it does
 
-- **One-command install** – installs Amiberry (via its official apt repo),
-  WHDLoad, and the FloppyCase desktop icon.
+- **One-command setup** – installs the emulator backend, WHDLoad support, the
+  `~/FloppyCase` folder layout, and a desktop launcher.
 - **Tidy directory layout** – a single `~/FloppyCase` folder with `roms/`,
   `games/`, `workbench/`, `configs/`, `whdload/` and `downloads/`.
-- **Automatic configuration** – detects your Kickstart ROM by CRC32 and writes
-  an Amiberry config for the matching model (**A500** or **A1200**) with the
-  correct chipset/CPU and the **maximum recommended Fast RAM** (8 MB). If no ROM
-  is present it falls back to the built-in **AROS** Kickstart replacement, so you
-  can boot an Amiga with zero copyrighted files.
-- **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game
-  via Amiberry's WHDLoad Booter (no manual Workbench setup); ADF disk images
-  boot the floppy directly. FloppyCase makes your Kickstart ROMs visible to the
-  booter automatically.
+- **Automatic configuration** – detects your Kickstart ROM by CRC32 and picks
+  the matching model (**A500** or **A1200**) with the correct chipset/CPU and
+  the **maximum recommended Fast RAM** (8 MB). If no ROM is present it falls
+  back to the built-in **AROS** Kickstart replacement, so you can boot an Amiga
+  with zero copyrighted files.
+- **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game;
+  ADF disk images boot the floppy directly.
 - **Optional app-menu launchers** – tick **Menu** on a game in the GUI (or pass
   `--launcher` on `add-game` / `scan`) to add a freedesktop `.desktop` entry so
   you can launch favorites from your Linux application menu without opening the
@@ -53,47 +50,74 @@ you add favorite games to your desktop app menu when you want them there.
   default (cursor keys + Space to fire); switch to numpad or a gamepad per game
   or globally.
 
-## Quick start
-
-### Install FloppyCase
+## Install FloppyCase and dependencies
 
 ```bash
-# One-time: pipx + Tkinter for the GUI
+# One-time system packages
 sudo apt install pipx python3-tk python3-venv
 pipx ensurepath
 # reopen the terminal if pipx ensurepath tells you to
 
-cd ~/Devel/floppycase   # your checkout
+# Install FloppyCase itself (goes on your PATH via pipx)
+pipx install git+https://github.com/pblasone/floppycase.git
 
-# Recommended: isolated app install (upgrades with pipx reinstall .)
-pipx install .
-
-# Alternative: development venv in the repo
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U -e ".[dev]"
-```
-
-After `pipx install .`, the commands `floppycase` and `floppycase-gui` are on your
-PATH. To pick up changes after `git pull`:
-
-```bash
-cd ~/Devel/floppycase
-pipx reinstall .
-```
-
-### Set up Amiberry and play
-
-```bash
-# Install Amiberry + WHDLoad and create the folder structure
+# Create ~/FloppyCase and install the emulator + support files
 floppycase install
-floppycase init
-
-# Drop games into ~/FloppyCase/games, then open the app
-floppycase gui
 ```
 
-The GUI scans your `games/` folder on open and lists every game alphabetically.
+That single `floppycase install` creates the `~/FloppyCase` directories, installs
+dependencies, and adds FloppyCase to your application menu. You do **not** need
+a separate `init` step.
+
+To upgrade later:
+
+```bash
+pipx upgrade floppycase
+# or, to reinstall from GitHub:
+pipx install --force git+https://github.com/pblasone/floppycase.git
+```
+
+## Add some games
+
+FloppyCase plays **WHDLoad** game packs (usually `.lha` files) and classic
+**ADF** floppy images.
+
+1. Download WHDLoad games (lots of them are listed on
+   [Games Nostalgia](https://gamesnostalgia.com/whdownload)).
+2. Copy the `.lha` files (or unpacked game folders) into
+   `~/FloppyCase/games`.
+3. Open FloppyCase — it scans that folder and lists what it finds.
+
+Prefer RetroPlay-style `.lha` packs with one top-level game folder containing a
+`.slave` file. You can also register games from the terminal with
+`floppycase scan` or `floppycase add-game`.
+
+## Add Amiga ROMs
+
+Without original Kickstart ROMs, FloppyCase falls back to the built-in **AROS**
+ROM. That is enough to start a basic Workbench-like environment, but **most
+commercial games will not run correctly** until real Kickstarts are installed.
+
+The legal way to obtain Kickstart ROMs is
+[Amiga Forever](https://www.amigaforever.com/) from Cloanto.
+
+1. Install Amiga Forever and locate its ROMs folder (it contains the Kickstart
+   files and usually a `rom.key`).
+2. Copy **everything** from that folder — including `rom.key` — into
+   `~/FloppyCase/roms`.
+3. Run `floppycase sync-roms` (or simply launch a game); FloppyCase decodes
+   Cloanto-encoded ROMs automatically when `rom.key` is present.
+
+`floppycase doctor` prints the ROM folder in use and warns about encrypted ROMs
+that still need a key.
+
+## Start gaming
+
+- From your desktop: open **FloppyCase** in the application menu / launcher.
+- From a terminal: `floppycase gui`
+
+Click the play icon (or double-click a row) to launch a game. Use the cog on a
+row for per-game controls, display options, and notes.
 
 ### Prefer the terminal?
 
@@ -117,14 +141,14 @@ floppycase add-game ~/Downloads/TurricanII --model a500 --name "Turrican II" --l
 | Command | What it does |
 | --- | --- |
 | `floppycase gui` | Open the desktop app: scan the games folder and click to play. |
-| `floppycase init` | Create the `~/FloppyCase` directory structure. |
-| `floppycase install` | Install Amiberry, WHDLoad and the app icon. |
-| `floppycase config` | Generate an Amiberry config (auto-detects ROM/model). |
+| `floppycase install` | Install dependencies, create `~/FloppyCase`, add the app menu entry. |
+| `floppycase init` | Create the `~/FloppyCase` directory structure only (also done by `install`). |
+| `floppycase config` | Generate a machine config (auto-detects ROM/model). |
 | `floppycase scan` | Scan the games folder and register every game found. |
 | `floppycase add-game <path>` | Store a game and build its config (`--launcher` adds an app-menu entry). |
 | `floppycase run <name>` | Boot the game (WHDLoad auto-boot for `.lha`, floppy for ADF). |
-| `floppycase sync-roms` | Decode (if needed) and refresh your Kickstarts in Amiberry's ROM folder. |
-| `floppycase clean-configs [name]` | Reset the WHDLoad booter's cached game config(s). |
+| `floppycase sync-roms` | Decode (if needed) and refresh Kickstart ROMs. |
+| `floppycase clean-configs [name]` | Reset cached WHDLoad game config(s). |
 | `floppycase list` | List detected ROMs and generated configs. |
 | `floppycase doctor` | Report what is installed / configured / missing. |
 
@@ -173,52 +197,46 @@ If no ROM is found, the built-in **AROS** ROM is used automatically.
 
 Original **Kickstart ROMs and Workbench are copyrighted** and are *not*
 distributed with FloppyCase. The legal way to obtain them is
-[Amiga Forever](https://www.amigaforever.com/).
+[Amiga Forever](https://www.amigaforever.com/) from Cloanto.
 
-Once Amiberry is installed, FloppyCase uses **Amiberry's own ROM folder**
-(`~/Amiberry/ROMs/`) as the single source of truth — drop your ROMs there (any
-ROMs found in the local `~/FloppyCase/roms/` are migrated across automatically).
-`floppycase doctor` prints the exact folder it's using.
+Put ROMs in **`~/FloppyCase/roms`** (including `rom.key` when Amiga Forever
+ships encoded files). FloppyCase prepares them for the emulator automatically;
+`floppycase doctor` prints the folder currently in use.
 
 For a fully free setup, FloppyCase uses the open-source
-[AROS](https://aros.org/) Kickstart replacement that ships with Amiberry.
+[AROS](https://aros.org/) Kickstart replacement.
 
 ### Amiga Forever (encrypted) ROMs
 
 Amiga Forever often ships ROMs in Cloanto's *encoded* form (an `AMIROMTYPE1`
-header, scrambled with `rom.key`). Emulators can't boot these directly — they
-show up as an unknown ROM and the CPU crashes on start. If you have the
-`rom.key` file, **copy it into the ROM folder alongside the ROMs** and FloppyCase
-decodes them automatically into a `floppycase-decoded/` subfolder that Amiberry
-also scans. If you don't have a `rom.key`, run Amiga Forever once (its newer
-versions decrypt the ROMs on first launch) and copy the resulting `.rom` files
-instead. `floppycase doctor` flags encrypted ROMs and tells you exactly what to do.
+header, scrambled with `rom.key`). Those files cannot be booted until they are
+decoded. If you copy `rom.key` into `~/FloppyCase/roms` alongside the ROMs,
+FloppyCase decodes them automatically. If you don't have a `rom.key`, run Amiga
+Forever once (newer versions decrypt the ROMs on first launch) and copy the
+resulting `.rom` files instead. `floppycase doctor` flags encrypted ROMs and
+tells you exactly what to do.
 
-If a game got a bad auto-config before your ROMs were set up (e.g. stuck at
-68000), reset it with `floppycase clean-configs <name>` — or launch it again,
-since FloppyCase clears the WHDLoad booter's cached config on each launch so it
-regenerates against your current ROMs.
+If a game got a bad auto-config before your ROMs were set up, reset it with
+`floppycase clean-configs <name>` — or launch it again so the cached WHDLoad
+config regenerates against your current ROMs.
 
 ### How games are launched
 
-- **WHDLoad `.lha` games** boot via Amiberry's WHDLoad Booter (`amiberry
-  --autoload game.lha`). Amiberry builds a temporary hard drive, installs the
-  game and starts it — no Workbench setup needed. This needs a **Kickstart 3.1
-  (A1200)** ROM (and ideally 1.3) available to Amiberry; FloppyCase makes your
-  ROMs visible to Amiberry's ROM path for you. Use RetroPlay `.lha` packs (one
-  top-level folder containing the `.slave`) for best results.
+- **WHDLoad `.lha` games** auto-boot into the game (no manual Workbench setup).
+  This works best with a **Kickstart 3.1 (A1200)** ROM available (and ideally
+  1.3 as well). Prefer RetroPlay `.lha` packs with one top-level folder
+  containing the `.slave`.
 - **ADF disk images** boot the floppy directly using a generated config with
   the auto-detected model and your Kickstart.
 
-Run `floppycase doctor` to confirm the WHDLoad Booter is ready and that a
-suitable Kickstart is visible to Amiberry.
+Run `floppycase doctor` if something will not start.
 
 ## Known limitations
 
 - **Linux only** for now (desktop integration targets freedesktop / apt).
-- WHDLoad auto-boot works best with a **Kickstart 3.1 (A1200)** ROM available
-  to Amiberry; without it, many `.lha` packs will not start cleanly.
-- Game compatibility ultimately depends on Amiberry / WHDLoad, not FloppyCase.
+- WHDLoad auto-boot works best with a **Kickstart 3.1 (A1200)** ROM installed;
+  without it, many `.lha` packs will not start cleanly.
+- Game compatibility ultimately depends on the emulator / WHDLoad, not FloppyCase.
 - This is a **beta**: expect rough edges, and please report them.
 
 ## Troubleshooting
@@ -229,13 +247,14 @@ Start with:
 floppycase doctor
 ```
 
-It reports whether Amiberry, WHDLoad, Kickstart ROMs, and the directory layout
-look healthy, and prints the ROM folder FloppyCase is using.
+It reports whether the emulator backend, WHDLoad support, Kickstart ROMs, and
+the directory layout look healthy, and prints the ROM folder FloppyCase is using.
 
 Common fixes:
 
-- GUI missing / Tk errors → `sudo apt install python3-tk`, then `pipx reinstall .`
-- Encrypted Amiga Forever ROMs → copy `rom.key` next to the ROMs, then
+- GUI missing / Tk errors → `sudo apt install python3-tk`, then
+  `pipx install --force git+https://github.com/pblasone/floppycase.git`
+- Encrypted Amiga Forever ROMs → copy `rom.key` into `~/FloppyCase/roms`, then
   `floppycase sync-roms`
 - Stale WHDLoad boot settings → `floppycase clean-configs <game>`
 - Wrong data directory → set `FLOPPYCASE_HOME` or pass `--base`
@@ -247,10 +266,10 @@ responsible for ensuring you have the legal right to use any Kickstart ROMs,
 Workbench files, and game images you add. FloppyCase does **not** distribute
 copyrighted Amiga system software or commercial games.
 
-Amiberry and WHDLoad are third-party projects with their own licenses and
-terms. "Amiga" is a trademark of its respective owner; FloppyCase is an
-independent project and is not affiliated with or endorsed by the trademark
-holder.
+FloppyCase uses third-party components (notably Amiberry and WHDLoad) with their
+own licenses and terms. "Amiga" is a trademark of its respective owner;
+FloppyCase is an independent project and is not affiliated with or endorsed by
+the trademark holder.
 
 ## Support
 
@@ -266,12 +285,14 @@ holder.
 This project was previously called **EasyAmiga**. FloppyCase still works with
 an existing `~/EasyAmiga` tree and the old `EASYAMIGA_HOME` environment
 variable. New installs default to `~/FloppyCase` / `FLOPPYCASE_HOME`. After
-reinstalling (`pipx reinstall .`), update any personal scripts that called
-`easyamiga`.
+reinstalling (`pipx install --force git+https://github.com/pblasone/floppycase.git`),
+update any personal scripts that called `easyamiga`.
 
 ## Development
 
 ```bash
+git clone https://github.com/pblasone/floppycase.git
+cd floppycase
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest
@@ -279,5 +300,6 @@ python3 -m venv .venv
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). Amiberry and WHDLoad are the property of their
-respective authors and are installed from their official distributions.
+[GPL-3.0-or-later](LICENSE). Third-party components such as Amiberry and WHDLoad
+are the property of their respective authors and are installed from their
+official distributions.
