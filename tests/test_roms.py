@@ -15,6 +15,27 @@ def _write_rom_with_crc(path, target_crc_hex, size=512 * 1024):
     return f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"
 
 
+def test_empty_roms_dir_falls_back_to_aros(tmp_path):
+    """No Kickstarts in the ROM folder -> configs use Amiberry's built-in AROS."""
+    from easyamiga.config_gen import ConfigOptions, render_config
+    from easyamiga.models import get_model
+    from easyamiga.paths import Paths
+    from easyamiga.roms import default_model_key, detect_roms, pick_rom_for_model
+
+    paths = Paths.resolve(tmp_path)
+    paths.ensure()
+    roms_dir = paths.roms
+
+    detected = detect_roms(roms_dir)
+    assert detected == []
+    assert pick_rom_for_model(detected, "a500") is None
+
+    text = render_config(
+        ConfigOptions(model=get_model(default_model_key(detected)), paths=paths, rom=None),
+    )
+    assert "kickstart_rom_file=:AROS" in text
+
+
 def test_crc32_matches_zlib(tmp_path):
     p = tmp_path / "rom.bin"
     data = b"AMIGA" * 100000
@@ -37,6 +58,19 @@ def test_detect_and_identify_known_rom(tmp_path, monkeypatch):
     assert len(detected) == 1
     assert detected[0].is_known
     assert detected[0].known.model == "a1200"
+
+
+def test_pick_ignores_unusable_encrypted_rom(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    from easyamiga.roms import DetectedRom, KnownRom
+
+    encrypted = DetectedRom(
+        roms_dir / "enc.rom", "deadbeef", KnownRom("deadbeef", "Encrypted", "a1200", ""),
+        encoded=True, has_key=False,
+    )
+    assert not encrypted.usable
+    assert pick_rom_for_model([encrypted], "a1200") is None
 
 
 def test_pick_prefers_model_specific(tmp_path):

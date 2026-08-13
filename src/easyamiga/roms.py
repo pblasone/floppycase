@@ -234,14 +234,12 @@ def default_model_key(detected: list[DetectedRom], fallback: str = "a500") -> st
 
 
 def pick_rom_for_model(detected: list[DetectedRom], model_key: str) -> DetectedRom | None:
-    """Choose the best ROM for a model: prefer a usable known ROM for that exact
-    model, then any usable known ROM, then any usable ROM, then anything."""
+    """Choose the best usable ROM for a model, or ``None`` to use built-in AROS."""
     usable = [d for d in detected if d.usable]
     pools = [
         [d for d in usable if d.known and d.known.model == model_key],
         [d for d in usable if d.known],
         usable,
-        detected,
     ]
     for pool in pools:
         if pool:

@@ -62,7 +62,7 @@ LABEL_W = 18
 PLAY_SIZE = 24
 PLAY_PAD = 3  # horizontal inset of the icon inside the green square
 SPIN_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-HEADER_LOGO = "gui-logo-top.png"
+HEADER_LOGO = "gui-logo-top-50.png"
 
 
 def _blank_default(value: str) -> str:
@@ -875,11 +875,19 @@ class EasyAmigaGUI:
     def _finish_refresh(self) -> None:
         n = len(self._rows)
         amiberry_ok = amiberry.is_installed()
+        rom_note = self._rom_status_label()
         self.status.configure(
             text=f"{n} game(s)  \u2022  games folder: {self.paths.games}  \u2022  "
-                 f"Amiberry: {'ready' if amiberry_ok else 'not installed'}"
+                 f"{rom_note}  \u2022  Amiberry: {'ready' if amiberry_ok else 'not installed'}"
         )
         self._update_amiberry_banner()
+
+    def _rom_status_label(self) -> str:
+        roms = detect_roms(self.roms_dir)
+        rom = pick_rom_for_model(roms, self._default_model())
+        if rom is None:
+            return "Kickstart: AROS (built-in)"
+        return f"Kickstart: {rom.description}"
 
     def _update_row_after_save(self, config_path: Path) -> None:
         stem = config_path.stem
