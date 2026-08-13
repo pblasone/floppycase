@@ -189,11 +189,13 @@ class FloppyCaseGUI:
         header = tk.Frame(self.root, bg=BG)
         header.pack(fill="x", padx=18, pady=(22, 14))
 
+        # Top-align the logo with the title (not vertically centered against the
+        # subtitle + hotkey tip lines that make the text column taller).
         logo = tk.Label(header, image=self._header_logo(), bg=BG, borderwidth=0)
-        logo.pack(side="left")
+        logo.pack(side="left", anchor="n")
 
         text = tk.Frame(header, bg=BG)
-        text.pack(side="left", padx=12)
+        text.pack(side="left", padx=12, anchor="n")
         tk.Label(text, text="FloppyCase", bg=BG, fg=TEXT,
                  font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
         tk.Label(text, text="Click a game to play it on your Amiga",
