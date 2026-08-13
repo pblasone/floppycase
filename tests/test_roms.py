@@ -1,0 +1,139 @@
+import struct
+import zlib
+
+from floppycase.roms import crc32_of, detect_roms, pick_rom_for_model, KNOWN_ROMS
+
+
+def _write_rom_with_crc(path, target_crc_hex, size=512 * 1024):
+    """Write a file whose CRC32 equals target_crc_hex.
+
+    We can't easily force an arbitrary CRC, so instead we verify crc32_of by
+    computing the expected value directly.
+    """
+    data = b"\x00" * size
+    path.write_bytes(data)
+    return f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"
+
+
+def test_empty_roms_dir_falls_back_to_aros(tmp_path):
+    """No Kickstarts in the ROM folder -> configs use Amiberry's built-in AROS."""
+    from floppycase.config_gen import ConfigOptions, render_config
+    from floppycase.models import get_model
+    from floppycase.paths import Paths
+    from floppycase.roms import default_model_key, detect_roms, pick_rom_for_model
+
+    paths = Paths.resolve(tmp_path)
+    paths.ensure()
+    roms_dir = paths.roms
+
+    detected = detect_roms(roms_dir)
+    assert detected == []
+    assert pick_rom_for_model(detected, "a500") is None
+
+    text = render_config(
+        ConfigOptions(model=get_model(default_model_key(detected)), paths=paths, rom=None),
+    )
+    assert "kickstart_rom_file=:AROS" in text
+
+
+def test_crc32_matches_zlib(tmp_path):
+    p = tmp_path / "rom.bin"
+    data = b"AMIGA" * 100000
+    p.write_bytes(data)
+    assert crc32_of(p) == f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"
+
+
+def test_detect_and_identify_known_rom(tmp_path, monkeypatch):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    rom = roms_dir / "kick.rom"
+    expected = _write_rom_with_crc(rom, None)
+
+    # Register a fake known ROM matching our generated file's CRC.
+    from floppycase.roms import KnownRom
+
+    monkeypatch.setitem(KNOWN_ROMS, expected, KnownRom(expected, "Test KS (A1200)", "a1200", f"{expected.upper()},Test"))
+
+    detected = detect_roms(roms_dir)
+    assert len(detected) == 1
+    assert detected[0].is_known
+    assert detected[0].known.model == "a1200"
+
+
+def test_pick_ignores_unusable_encrypted_rom(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    from floppycase.roms import DetectedRom, KnownRom
+
+    encrypted = DetectedRom(
+        roms_dir / "enc.rom", "deadbeef", KnownRom("deadbeef", "Encrypted", "a1200", ""),
+        encoded=True, has_key=False,
+    )
+    assert not encrypted.usable
+    assert pick_rom_for_model([encrypted], "a1200") is None
+
+
+def test_pick_prefers_model_specific(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    from floppycase.roms import DetectedRom, KnownRom
+
+    a500 = DetectedRom(roms_dir / "a.rom", "aaaa1111", KnownRom("aaaa1111", "A500", "a500", "x"))
+    a1200 = DetectedRom(roms_dir / "b.rom", "bbbb2222", KnownRom("bbbb2222", "A1200", "a1200", "y"))
+    assert pick_rom_for_model([a500, a1200], "a1200") is a1200
+    assert pick_rom_for_model([a500, a1200], "a500") is a500
+
+
+def test_detect_ignores_tiny_files(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    (roms_dir / "note.txt").write_text("not a rom")
+    assert detect_roms(roms_dir) == []
+
+
+def _encode(plaintext: bytes, key: bytes) -> bytes:
+    from floppycase.roms import AMIROMTYPE1
+
+    body = bytes(b ^ key[i % len(key)] for i, b in enumerate(plaintext))
+    return AMIROMTYPE1 + body
+
+
+def test_encoded_rom_without_key_is_flagged(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    plaintext = (b"KICK" * (512 * 1024 // 4))
+    (roms_dir / "amiga-os-310-a1200.rom").write_bytes(_encode(plaintext, b"secret"))
+
+    detected = detect_roms(roms_dir)
+    assert len(detected) == 1
+    rom = detected[0]
+    assert rom.encoded and not rom.has_key
+    assert not rom.usable
+    assert "ENCRYPTED" in rom.description.upper()
+
+
+def test_encoded_rom_is_decoded_in_place_with_key(tmp_path):
+    roms_dir = tmp_path / "roms"
+    roms_dir.mkdir()
+    key = b"\x11\x22\x33\x44\x55"
+    plaintext = bytes((i * 7) & 0xFF for i in range(512 * 1024))
+    rom = roms_dir / "amiga-os-310-a1200.rom"
+    encoded_bytes = _encode(plaintext, key)
+    rom.write_bytes(encoded_bytes)
+    (roms_dir / "rom.key").write_bytes(key)
+
+    detected = detect_roms(roms_dir)
+    assert len(detected) == 1
+    d = detected[0]
+    # After in-place decode the ROM is a plain, usable file at its original path.
+    assert d.usable and not d.encoded
+    assert d.path == rom
+    assert d.crc32 == crc32_bytes_of(plaintext)
+    assert rom.read_bytes() == plaintext
+    # The original encoded bytes are preserved as a .encoded backup.
+    backup = roms_dir / "amiga-os-310-a1200.rom.encoded"
+    assert backup.exists() and backup.read_bytes() == encoded_bytes
+
+
+def crc32_bytes_of(data: bytes) -> str:
+    return f"{zlib.crc32(data) & 0xFFFFFFFF:08x}"

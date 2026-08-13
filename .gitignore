@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# FloppyCase runtime data (created by `floppycase init`)
+/FloppyCase/
+# Legacy EasyAmiga PoC data directory
+/EasyAmiga/
+*.uae.bak
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

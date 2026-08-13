@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "floppycase"
+version = "0.2.3"
+description = "Plug-and-play setup for playing Amiga games on Linux with Amiberry"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "FloppyCase contributors" }]
+keywords = ["floppycase", "amiga", "amiberry", "emulator", "whdload", "aros", "retro"]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "requests>=2.31",
+    "platformdirs>=4.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+floppycase = "floppycase.cli:main"
+floppycase-gui = "floppycase.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/pblasone/floppycase"
+Issues = "https://github.com/pblasone/floppycase/issues"
+Changelog = "https://github.com/pblasone/floppycase/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+floppycase = ["assets/*", "assets/icons/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
