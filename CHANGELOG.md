@@ -5,6 +5,16 @@ All notable changes to FloppyCase are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-08-13
+
+### Fixed
+
+- Host hotkeys (**F10** quit, **F11** fullscreen, **Ctrl+Alt** mouse release) were
+  ignored because Amiberry only accepts those options with an `amiberry.` prefix
+  on the command line.
+- `whdload_quit_on_exit` is now applied *before* `--autoload` so WHDLoad's
+  startup-sequence actually includes AmiQuit.
+
 ## [0.2.2] - 2026-08-13
 
 ### Added

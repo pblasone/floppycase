@@ -63,6 +63,30 @@ def test_adf_config_has_no_hd_mount(tmp_path):
     assert "floppy0=" in text
 
 
+def test_build_game_command_whdload_option_order(tmp_path):
+    """whdload_* must precede --autoload; host overrides follow it."""
+    lha = tmp_path / "SuperFrog.lha"
+    lha.write_bytes(b"x")
+    cmd = amiberry.build_game_command(
+        lha,
+        kind="whdload",
+        amiberry=FAKE_EXE,
+        options={
+            "whdload_quit_on_exit": "true",
+            "amiberry.quit_amiberry": "F10",
+            "amiberry.fullscreen_toggle": "F11",
+        },
+    )
+    autoload_at = cmd.index("--autoload")
+    quit_on_exit_at = cmd.index("whdload_quit_on_exit=true")
+    assert cmd[quit_on_exit_at - 1] == "-s"
+    assert quit_on_exit_at < autoload_at
+    host_quit_at = cmd.index("amiberry.quit_amiberry=F10")
+    assert cmd[host_quit_at - 1] == "-s"
+    assert host_quit_at > autoload_at
+    assert "amiberry.fullscreen_toggle=F11" in cmd
+
+
 def test_build_game_command_whdload_uses_autoload(tmp_path):
     lha = tmp_path / "SuperFrog.lha"
     lha.write_bytes(b"x")

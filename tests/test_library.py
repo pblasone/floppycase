@@ -45,9 +45,9 @@ def test_launch_args_mapping(tmp_path):
     assert opts["gfx_width"] == "1440" and opts["gfx_height"] == "1136"
     assert opts["gfx_fullscreen_amiga"] == "false"
     assert opts["gfx_fullscreen_picasso"] == "false"
-    assert opts["ctrl_alt_release"] == "true"
-    assert opts["quit_amiberry"] == library.QUIT_HOTKEY
-    assert opts["fullscreen_toggle"] == library.FULLSCREEN_TOGGLE_HOTKEY
+    assert opts["amiberry.ctrl_alt_release"] == "true"
+    assert opts["amiberry.quit_amiberry"] == library.QUIT_HOTKEY
+    assert opts["amiberry.fullscreen_toggle"] == library.FULLSCREEN_TOGGLE_HOTKEY
     assert opts["whdload_quit_on_exit"] == "true"
     assert "Ctrl+Alt" in opts["config_window_title"]
     assert "joyport1mode" not in opts
@@ -107,7 +107,7 @@ def test_launch_args_mapping(tmp_path):
     )
     assert opts["ntsc"] == "true"
     assert opts["gfx_linemode"] == "double"
-    assert opts["amiberry.vertical_offset"] == "-10"
+    assert opts["amiberry.gfx_vertical_offset"] == "-10"
 
     _, opts = library.launch_args(
         {
@@ -129,7 +129,7 @@ def test_launch_args_mapping(tmp_path):
     assert opts["gfx_fullscreen_picasso"] == "fullwindow"
     assert "gfx_fullscreen" not in opts
     assert "gfx_width" not in opts
-    assert opts["shader"] == "crt"
+    assert opts["amiberry.shader"] == "crt"
 
 
 def test_hardware_from_db_and_cd32_detection():

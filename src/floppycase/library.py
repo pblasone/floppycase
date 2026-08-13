@@ -30,7 +30,7 @@ DEFAULT_SETTINGS: dict = {
   # Video timing / viewport (fixes cropped tops on some titles)
   "video_standard": "default",    # default | pal | ntsc
   "line_mode": "default",         # default | single | double (scanline height)
-  "vertical_offset": "default",   # default | pixels (amiberry.vertical_offset)
+  "vertical_offset": "default",   # default | pixels (amiberry.gfx_vertical_offset)
   # Input fine-tuning (mirrors Amiberry input / WHDLoad options)
   "cd32_pad": "default",          # default | on | off
   "stop_keypresses": "default",   # default | off | on
@@ -234,7 +234,7 @@ def _apply_display_opts(eff: dict, opts: dict[str, str]) -> None:
     raw_vo = eff.get("vertical_offset", "default")
     if raw_vo not in (None, "", "default"):
         try:
-            opts["amiberry.vertical_offset"] = str(int(str(raw_vo).strip()))
+            opts["amiberry.gfx_vertical_offset"] = str(int(str(raw_vo).strip()))
         except ValueError:
             pass
 
@@ -280,19 +280,22 @@ def launch_args(
             factor = int(scale[0])
             opts["gfx_width"] = str(_BASE_W * factor)
             opts["gfx_height"] = str(_BASE_H * factor)
-            opts["gfx_correct_aspect"] = "true"
+            opts["amiberry.gfx_correct_aspect"] = "true"
     if eff.get("filter") == "crt":
-        opts["shader"] = "crt"
+        opts["amiberry.shader"] = "crt"
     _apply_display_opts(eff, opts)
 
     # Host escape hatches (Amiberry grabs the keyboard while the emu has focus,
     # which also swallows laptop volume keys until the mouse is released).
-    opts["ctrl_alt_release"] = "true"
-    opts["quit_amiberry"] = QUIT_HOTKEY
-    opts["fullscreen_toggle"] = FULLSCREEN_TOGGLE_HOTKEY
+    # These are Amiberry *target* options and must use the ``amiberry.`` prefix
+    # or ``-s`` silently ignores them (unknown config entry).
+    opts["amiberry.ctrl_alt_release"] = "true"
+    opts["amiberry.quit_amiberry"] = QUIT_HOTKEY
+    opts["amiberry.fullscreen_toggle"] = FULLSCREEN_TOGGLE_HOTKEY
     opts["config_window_title"] = WINDOW_TITLE_HINT
     # WHDLoad's own quit (often F10) returns to Workbench; this closes Amiberry
     # immediately afterwards so you are not left at a Shell prompt.
+    # Must be applied *before* ``--autoload`` (see amiberry.build_game_command).
     opts["whdload_quit_on_exit"] = "true"
 
     controls = eff.get("controls", "keyboard-arrows")

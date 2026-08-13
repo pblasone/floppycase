@@ -140,6 +140,25 @@ def _set_args(options: dict[str, str] | None) -> list[str]:
     return args
 
 
+def _partition_launch_options(
+    options: dict[str, str] | None,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Split ``-s`` options into pre- and post-``--autoload`` groups.
+
+    WHDLoad Booter builds its startup-sequence during ``--autoload``, so options
+    like ``whdload_quit_on_exit`` must already be set. Host/display/joyport
+    overrides stay *after* autoload so they win over any cached ``.uae``.
+    """
+    pre: dict[str, str] = {}
+    post: dict[str, str] = {}
+    for key, value in (options or {}).items():
+        if key.startswith("whdload_"):
+            pre[key] = value
+        else:
+            post[key] = value
+    return pre, post
+
+
 def build_command(
     config_path: Path,
     amiberry: str | None = None,
@@ -201,6 +220,10 @@ def build_game_command(
     if rescan:
         cmd.append("--rescan-roms")
 
+    pre_opts, post_opts = _partition_launch_options(options)
+    # WHDLoad bootscript options must precede --autoload (see partition helper).
+    cmd += _set_args(pre_opts)
+
     if suffix in WHDLOAD_ARCHIVES and kind != "adf":
         cmd += ["--autoload", str(source)]
     elif suffix in DISK_IMAGES:
@@ -209,7 +232,7 @@ def build_game_command(
         # Unknown container: let the WHDLoad Booter try it.
         cmd += ["--autoload", str(source)]
     cmd += _joyport_args(joyports)
-    cmd += _set_args(options)
+    cmd += _set_args(post_opts)
     return cmd
 
 
