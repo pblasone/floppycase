@@ -1,0 +1,4 @@
+{
+  "name": "easyamiga",
+  "install": "bash .cursor/install.sh"
+}

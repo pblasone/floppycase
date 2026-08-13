@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# easyamiga runtime data (created by `easyamiga init`)
+/EasyAmiga/
+*.uae.bak
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

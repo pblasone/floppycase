@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="ball" cx="40%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#ff2d2d"/>
+      <stop offset="100%" stop-color="#b30000"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="22" fill="#101828"/>
+  <!-- Boing-ball inspired checkerboard sphere -->
+  <clipPath id="c"><circle cx="64" cy="60" r="42"/></clipPath>
+  <g clip-path="url(#c)">
+    <rect x="22" y="18" width="84" height="84" fill="url(#ball)"/>
+    <g fill="#ffffff" opacity="0.9">
+      <rect x="22" y="18" width="14" height="14"/>
+      <rect x="50" y="18" width="14" height="14"/>
+      <rect x="78" y="18" width="14" height="14"/>
+      <rect x="36" y="32" width="14" height="14"/>
+      <rect x="64" y="32" width="14" height="14"/>
+      <rect x="92" y="32" width="14" height="14"/>
+      <rect x="22" y="46" width="14" height="14"/>
+      <rect x="50" y="46" width="14" height="14"/>
+      <rect x="78" y="46" width="14" height="14"/>
+      <rect x="36" y="60" width="14" height="14"/>
+      <rect x="64" y="60" width="14" height="14"/>
+      <rect x="92" y="60" width="14" height="14"/>
+      <rect x="22" y="74" width="14" height="14"/>
+      <rect x="50" y="74" width="14" height="14"/>
+      <rect x="78" y="74" width="14" height="14"/>
+    </g>
+  </g>
+  <circle cx="64" cy="60" r="42" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.5"/>
+  <text x="64" y="118" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="700" fill="#ffffff">easyamiga</text>
+</svg>
