@@ -115,10 +115,8 @@ def add_game(
 
 
 def menu_launcher_enabled(paths: Paths, key: str) -> bool:
-    """True when the game is opted into the desktop app menu (or has a legacy launcher)."""
-    if library.get_game(paths, key).get("menu_launcher"):
-        return True
-    return desktop.desktop_file_path(key).exists()
+    """True only when the user has explicitly opted the game into the start menu."""
+    return library.get_game(paths, key).get("menu_launcher") is True
 
 
 def set_menu_launcher(

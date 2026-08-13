@@ -995,7 +995,7 @@ class FloppyCaseGUI:
 
         menu_cb = tk.Checkbutton(
             menu_wrap,
-            text="Menu",
+            text="Add to start menu",
             variable=menu_var,
             command=on_menu_toggle,
             bg=CARD,

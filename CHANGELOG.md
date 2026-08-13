@@ -14,6 +14,10 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - Default data directory is now `~/FloppyCase` (env: `FLOPPYCASE_HOME`).
 - Console scripts are now `floppycase` and `floppycase-gui`.
 - Config metadata is written as `; floppycase_*`.
+- GUI start-menu opt-in label is now **Add to start menu**; unchecked by
+  default (explicit library flag only — leftover `.desktop` files do not count).
+- Application icon replaced with the FloppyCase monochrome glyph; added
+  `floppycase-tray.svg` for Linux Mint/Ubuntu panels.
 
 ### Added
 

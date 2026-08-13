@@ -1,5 +1,9 @@
 # FloppyCase
 
+<p align="center">
+  <img src="src/floppycase/assets/applogo-380.png" alt="FloppyCase" width="380">
+</p>
+
 > **Public beta.** FloppyCase works for day-to-day play, but APIs, paths, and
 > UX may still change. Please file issues when something breaks.
 
@@ -37,10 +41,10 @@ FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and t
   with zero copyrighted files.
 - **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game;
   ADF disk images boot the floppy directly.
-- **Optional app-menu launchers** – tick **Menu** on a game in the GUI (or pass
-  `--launcher` on `add-game` / `scan`) to add a freedesktop `.desktop` entry so
-  you can launch favorites from your Linux application menu without opening the
-  FloppyCase window.
+- **Optional start-menu launchers** – tick **Add to start menu** on a game in
+  the GUI (or pass `--launcher` on `add-game` / `scan`) to add a freedesktop
+  `.desktop` entry so you can launch favorites from your Linux application menu
+  without opening the FloppyCase window. Off by default.
 - **Friendly desktop app** – `floppycase gui` opens a scrollable alphabetical list
   of your games; click the play icon (or double-click a row) to launch.
 - **Per-game settings & notes** – a cog on each row opens a dialog to set
@@ -290,6 +294,13 @@ python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest
 ```
+
+## Acknowledgments
+
+FloppyCase was built with substantial help from
+[Cursor](https://cursor.com/) and the **Grok 4.5** model. AI tools accelerated
+implementation and documentation; the project is maintained by humans who remain
+responsible for its design, review, and releases.
 
 ## License
 

@@ -199,6 +199,22 @@ def test_menu_launcher_toggle(tmp_path, monkeypatch):
     assert not launcher.exists()
 
 
+def test_menu_launcher_ignores_orphan_desktop_file(tmp_path, monkeypatch):
+    """A leftover .desktop file alone must not opt the game into the start menu."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "FloppyCase")
+    paths.ensure()
+    adf = tmp_path / "Chaos.adf"
+    adf.write_bytes(b"\x00" * (880 * 1024))
+    add_game(paths, adf, get_model("a500"), name="Chaos", create_launcher=False)
+
+    orphan = desktop.desktop_file_path("Chaos")
+    orphan.parent.mkdir(parents=True, exist_ok=True)
+    orphan.write_text("[Desktop Entry]\nName=Chaos\n", encoding="utf-8")
+    assert orphan.exists()
+    assert not menu_launcher_enabled(paths, "Chaos")
+
+
 def test_app_launcher_written(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
     target = desktop.write_app_launcher()

@@ -155,14 +155,31 @@ def install_whdload(paths: Paths, log=print) -> bool:
 
 # --- Icon ----------------------------------------------------------------------
 def install_icon(log=print) -> Path:
-    """Install the floppycase icon into the user icon theme and return its path."""
-    target_dir = Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / "floppycase.svg"
-    source = resources.files("floppycase.assets").joinpath("floppycase.svg")
-    target.write_bytes(source.read_bytes())
-    log(f"Icon installed at {target}")
-    return target
+    """Install FloppyCase icons into the user icon theme and return the app icon path.
+
+    Installs:
+    * ``floppycase.svg`` – application / start-menu icon
+    * ``floppycase-tray.svg`` – monochrome tray/panel glyph for Mint/Ubuntu
+    """
+    base = Path.home() / ".local" / "share" / "icons" / "hicolor"
+    apps_dir = base / "scalable" / "apps"
+    panel_dir = base / "scalable" / "status"
+    apps_dir.mkdir(parents=True, exist_ok=True)
+    panel_dir.mkdir(parents=True, exist_ok=True)
+
+    assets = resources.files("floppycase.assets")
+    app_target = apps_dir / "floppycase.svg"
+    tray_target = panel_dir / "floppycase-tray.svg"
+    # Also publish the tray glyph under apps/ so launchers can refer to it by name.
+    tray_app_target = apps_dir / "floppycase-tray.svg"
+
+    app_target.write_bytes(assets.joinpath("floppycase.svg").read_bytes())
+    tray_bytes = assets.joinpath("floppycase-tray.svg").read_bytes()
+    tray_target.write_bytes(tray_bytes)
+    tray_app_target.write_bytes(tray_bytes)
+    log(f"Icon installed at {app_target}")
+    log(f"Tray icon installed at {tray_target}")
+    return app_target
 
 
 def install_app_launcher(log=print) -> Path:
