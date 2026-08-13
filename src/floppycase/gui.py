@@ -189,24 +189,34 @@ class FloppyCaseGUI:
         header = tk.Frame(self.root, bg=BG)
         header.pack(fill="x", padx=18, pady=(22, 14))
 
-        # Top-align the logo with the title (not vertically centered against the
-        # subtitle + hotkey tip lines that make the text column taller).
-        logo = tk.Label(header, image=self._header_logo(), bg=BG, borderwidth=0)
-        logo.pack(side="left", anchor="n")
-
-        text = tk.Frame(header, bg=BG)
-        text.pack(side="left", padx=12, anchor="n")
-        tk.Label(text, text="FloppyCase", bg=BG, fg=TEXT,
-                 font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
-        tk.Label(text, text="Click a game to play it on your Amiga",
-                 bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
+        # Brand row: logo + title only. Subtitle/hotkey tips sit below so they
+        # cannot pull the logo away from the title.
+        brand = tk.Frame(header, bg=BG)
+        brand.pack(anchor="w")
+        logo = tk.Label(brand, image=self._header_logo(), bg=BG, borderwidth=0)
+        logo.pack(side="left")
         tk.Label(
-            text,
+            brand,
+            text="FloppyCase",
+            bg=BG,
+            fg=TEXT,
+            font=("Sans", 22, "bold"),
+        ).pack(side="left", padx=(12, 0))
+
+        tk.Label(
+            header,
+            text="Click a game to play it on your Amiga",
+            bg=BG,
+            fg=MUTED,
+            font=("Sans", 11),
+        ).pack(anchor="w", pady=(8, 0))
+        tk.Label(
+            header,
             text="While playing: Ctrl+Alt releases the mouse  ·  F10 quits emulator  ·  F11 toggles fullscreen",
             bg=BG,
             fg=MUTED,
             font=("Sans", 9),
-        ).pack(anchor="w", pady=(6, 0))
+        ).pack(anchor="w", pady=(4, 0))
 
     def _header_logo(self) -> tk.PhotoImage:
         """Load the header PNG from packaged assets (keep a reference on ``self``)."""
