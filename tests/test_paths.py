@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from easyamiga.paths import Paths
+from floppycase.paths import Paths
 
 
 def test_resolve_and_ensure(tmp_path):
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     for directory in paths.all_dirs():
         assert directory.is_dir()
@@ -17,6 +17,13 @@ def test_config_file_suffix(tmp_path):
 
 
 def test_env_override(tmp_path, monkeypatch):
-    monkeypatch.setenv("EASYAMIGA_HOME", str(tmp_path / "custom"))
+    monkeypatch.setenv("FLOPPYCASE_HOME", str(tmp_path / "custom"))
     paths = Paths.resolve()
     assert paths.base == Path(tmp_path / "custom")
+
+
+def test_legacy_env_override(tmp_path, monkeypatch):
+    monkeypatch.delenv("FLOPPYCASE_HOME", raising=False)
+    monkeypatch.setenv("EASYAMIGA_HOME", str(tmp_path / "legacy"))
+    paths = Paths.resolve()
+    assert paths.base == Path(tmp_path / "legacy")

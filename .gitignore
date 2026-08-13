@@ -9,7 +9,9 @@ dist/
 venv/
 .pytest_cache/
 
-# easyamiga runtime data (created by `easyamiga init`)
+# FloppyCase runtime data (created by `floppycase init`)
+/FloppyCase/
+# Legacy EasyAmiga PoC data directory
 /EasyAmiga/
 *.uae.bak
 

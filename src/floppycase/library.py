@@ -1,6 +1,6 @@
 """Per-game library: display names, user notes, and launch settings.
 
-easyamiga keeps a small JSON "library" (``~/EasyAmiga/library.json``) with global
+FloppyCase keeps a small JSON "library" (``~/FloppyCase/library.json``) with global
 default settings plus per-game overrides and free-text notes. Settings are turned
 into Amiberry command-line options (``-s key=value``) at launch time,
 so a game can be tuned without hand-editing `.uae` files.

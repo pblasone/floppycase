@@ -1,8 +1,12 @@
-"""Filesystem layout for an easyamiga installation.
+"""Filesystem layout for a FloppyCase installation.
 
-Everything easyamiga manages lives under a single *base* directory so the whole
+Everything FloppyCase manages lives under a single *base* directory so the whole
 setup is self-contained and easy to back up or move. The default base is
-``~/EasyAmiga`` but it can be overridden (e.g. for tests or multiple setups).
+``~/FloppyCase`` but it can be overridden (e.g. for tests or multiple setups).
+
+If you previously used the EasyAmiga PoC name, FloppyCase still honours
+``EASYAMIGA_HOME`` and an existing ``~/EasyAmiga`` directory so your games keep
+working without a manual move.
 """
 
 from __future__ import annotations
@@ -11,27 +15,38 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_BASE = Path.home() / "EasyAmiga"
+DEFAULT_BASE = Path.home() / "FloppyCase"
+LEGACY_BASE = Path.home() / "EasyAmiga"
 
-ENV_BASE = "EASYAMIGA_HOME"
+ENV_BASE = "FLOPPYCASE_HOME"
+LEGACY_ENV_BASE = "EASYAMIGA_HOME"
 
 
 def default_base() -> Path:
     """Return the configured base directory.
 
-    Honours the ``EASYAMIGA_HOME`` environment variable so a user (or the test
-    suite) can point easyamiga at a different location without extra flags.
+    Resolution order:
+
+    1. ``FLOPPYCASE_HOME``
+    2. legacy ``EASYAMIGA_HOME`` (EasyAmiga PoC)
+    3. ``~/FloppyCase`` if it already exists
+    4. ``~/EasyAmiga`` if it already exists (EasyAmiga PoC)
+    5. otherwise ``~/FloppyCase`` (created on ``init``)
     """
 
-    env = os.environ.get(ENV_BASE)
+    env = os.environ.get(ENV_BASE) or os.environ.get(LEGACY_ENV_BASE)
     if env:
         return Path(env).expanduser()
+    if DEFAULT_BASE.exists():
+        return DEFAULT_BASE
+    if LEGACY_BASE.exists():
+        return LEGACY_BASE
     return DEFAULT_BASE
 
 
 @dataclass(frozen=True)
 class Paths:
-    """Resolved directory layout for one easyamiga base."""
+    """Resolved directory layout for one FloppyCase base."""
 
     base: Path
 

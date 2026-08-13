@@ -1,4 +1,4 @@
-"""easyamiga command-line interface."""
+"""floppycase command-line interface."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ console = Console()
 BaseOption = typer.Option(
     None,
     "--base",
-    help="easyamiga base directory (default: ~/EasyAmiga or $EASYAMIGA_HOME).",
+    help="floppycase base directory (default: ~/FloppyCase or $FLOPPYCASE_HOME).",
 )
 
 
@@ -71,7 +71,7 @@ def _usable_or_warn(rom: Optional[DetectedRom]) -> Optional[DetectedRom]:
         console.print(
             f"[yellow]ROM '{rom.path.name}' is an encrypted Amiga Forever ROM and no "
             "rom.key was found, so it can't be used. Falling back to the free AROS ROM.\n"
-            "Fix: copy 'rom.key' from Amiga Forever into ~/EasyAmiga/roms (easyamiga will "
+            "Fix: copy 'rom.key' from Amiga Forever into ~/FloppyCase/roms (floppycase will "
             "decode it), or run Amiga Forever once to get decrypted .rom files.[/yellow]"
         )
         return None
@@ -93,13 +93,13 @@ def _resolve_rom(paths: Paths, rom_path: Optional[str], model_key: str) -> Optio
 # --- commands ------------------------------------------------------------------
 @app.command()
 def version() -> None:
-    """Show the easyamiga version."""
-    console.print(f"easyamiga {__version__}")
+    """Show the floppycase version."""
+    console.print(f"FloppyCase {__version__}")
 
 
 @app.command()
 def init(base: Optional[str] = BaseOption) -> None:
-    """Create the easyamiga directory structure."""
+    """Create the floppycase directory structure."""
     paths = _paths(base)
     paths.ensure()
     for step in (install_mod.install_icon, install_mod.install_app_launcher):
@@ -109,7 +109,7 @@ def init(base: Optional[str] = BaseOption) -> None:
             pass
 
     rdir = _roms_dir(paths)
-    table = Table(title=f"easyamiga initialised at {paths.base}", show_header=True)
+    table = Table(title=f"FloppyCase initialised at {paths.base}", show_header=True)
     table.add_column("Directory")
     table.add_column("Purpose")
     table.add_row(str(rdir), "Kickstart ROMs (drop them here, with rom.key if any)")
@@ -121,13 +121,13 @@ def init(base: Optional[str] = BaseOption) -> None:
     console.print(table)
     if not amiberry.is_installed():
         console.print(
-            "\nNext: [bold]easyamiga install[/bold] to install Amiberry, then "
-            "[bold]easyamiga config[/bold] to create your first machine."
+            "\nNext: [bold]floppycase install[/bold] to install Amiberry, then "
+            "[bold]floppycase config[/bold] to create your first machine."
         )
     else:
         console.print(
             f"\nDrop Kickstart ROMs into [bold]{rdir}[/bold] (Amiberry's own ROM folder), "
-            "then [bold]easyamiga gui[/bold] to play."
+            "then [bold]floppycase gui[/bold] to play."
         )
 
 
@@ -138,7 +138,7 @@ def install(
 ) -> None:
     """Install Amiberry and supporting packages."""
     paths = _paths(base)
-    console.print(Panel.fit("Installing easyamiga prerequisites", style="cyan"))
+    console.print(Panel.fit("Installing FloppyCase prerequisites", style="cyan"))
     summary = install_mod.install_all(paths, log=console.print, with_whdload=whdload)
 
     table = Table(title="Install summary")
@@ -200,7 +200,7 @@ def config(
             style="green",
         )
     )
-    console.print(f"Run it with: [bold]easyamiga run {config_name}[/bold]")
+    console.print(f"Run it with: [bold]floppycase run {config_name}[/bold]")
 
 
 @app.command("add-game")
@@ -257,7 +257,7 @@ def run(
         available = ", ".join(p.stem for p in list_configs(paths)) or "(none)"
         raise typer.BadParameter(f"No config named {name!r}. Available: {available}")
     if not amiberry.is_installed():
-        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        console.print("[red]Amiberry is not installed. Run 'floppycase install' first.[/red]")
         raise typer.Exit(1)
 
     eff = library.effective(paths, config_path.stem)
@@ -344,12 +344,12 @@ def scan(
 def sync_roms(base: Optional[str] = BaseOption) -> None:
     """Decode (if needed) and copy your Kickstart ROMs into Amiberry's ROM folder.
 
-    Run this after adding ROMs or a rom.key. Games launched via easyamiga do this
+    Run this after adding ROMs or a rom.key. Games launched via floppycase do this
     automatically, but this is handy after changing ROMs while Amiberry is set up.
     """
     paths = _paths(base)
     if not amiberry.is_installed():
-        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        console.print("[red]Amiberry is not installed. Run 'floppycase install' first.[/red]")
         raise typer.Exit(1)
     n = install_mod.sync_kickstarts(paths, log=console.print)
     roms = detect_roms(_roms_dir(paths))
@@ -358,7 +358,7 @@ def sync_roms(base: Optional[str] = BaseOption) -> None:
     if usable_a1200:
         console.print("[green]A1200 Kickstart 3.1 is available - WHDLoad auto-boot should work.[/green]")
     console.print(
-        "Launch a game with [bold]easyamiga run <name>[/bold] or the GUI "
+        "Launch a game with [bold]floppycase run <name>[/bold] or the GUI "
         "(they rescan Amiberry's ROMs automatically)."
     )
 
@@ -375,7 +375,7 @@ def clean_configs(
     """
     paths = _paths(base)
     if not amiberry.is_installed():
-        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        console.print("[red]Amiberry is not installed. Run 'floppycase install' first.[/red]")
         raise typer.Exit(1)
 
     removed: list[Path] = []
@@ -415,8 +415,8 @@ def verify(base: Optional[str] = BaseOption) -> None:
     by_sha1, by_name = install_mod.load_whdload_db()
     if not by_sha1 and not by_name:
         console.print(
-            "[yellow]WHDLoad database unavailable - run 'easyamiga install' or "
-            "'easyamiga repair-whdboot' first.[/yellow]"
+            "[yellow]WHDLoad database unavailable - run 'floppycase install' or "
+            "'floppycase repair-whdboot' first.[/yellow]"
         )
 
     table = Table(title=f"Game check ({paths.games})")
@@ -448,7 +448,7 @@ def verify(base: Optional[str] = BaseOption) -> None:
     if total:
         console.print(
             f"{recognised}/{total} recognised as WHDLoad packs. Recognised packs should "
-            "auto-boot once the game's Kickstart is present (see 'easyamiga doctor')."
+            "auto-boot once the game's Kickstart is present (see 'floppycase doctor')."
         )
 
 
@@ -461,7 +461,7 @@ def repair_whdboot(base: Optional[str] = BaseOption) -> None:
     """
     paths = _paths(base)
     if not amiberry.is_installed():
-        console.print("[red]Amiberry is not installed. Run 'easyamiga install' first.[/red]")
+        console.print("[red]Amiberry is not installed. Run 'floppycase install' first.[/red]")
         raise typer.Exit(1)
     active, backup = install_mod.whdload_db_counts()
     console.print(f"WHDLoad database: active={active} games, backup={backup} games.")
@@ -473,14 +473,14 @@ def repair_whdboot(base: Optional[str] = BaseOption) -> None:
 
 @app.command()
 def gui(base: Optional[str] = BaseOption) -> None:
-    """Launch the easyamiga desktop app (scan and click to play)."""
+    """Launch the floppycase desktop app (scan and click to play)."""
     try:
         from .gui import run_gui
     except Exception as exc:  # tkinter missing, etc.
         console.print(
             f"[red]Could not start the GUI ({exc}).[/red]\n"
             "Make sure Tk is installed (e.g. 'sudo apt install python3-tk'), "
-            "or run 'easyamiga install'."
+            "or run 'floppycase install'."
         )
         raise typer.Exit(1)
     run_gui(base)
@@ -490,7 +490,7 @@ def gui(base: Optional[str] = BaseOption) -> None:
 def doctor(base: Optional[str] = BaseOption) -> None:
     """Diagnose the setup and report what is ready or missing."""
     paths = _paths(base)
-    table = Table(title="easyamiga doctor")
+    table = Table(title="FloppyCase doctor")
     table.add_column("Check")
     table.add_column("Result")
 
@@ -531,7 +531,7 @@ def doctor(base: Optional[str] = BaseOption) -> None:
         table.add_row("WHDLoad Booter", "[green]ready[/green]" if booter.exists() else "[yellow]missing (run install)[/yellow]")
         active, backup = install_mod.whdload_db_counts()
         if active < 100 and backup > active:
-            table.add_row("WHDLoad game DB", f"[yellow]{active} games (stub!) - run 'easyamiga repair-whdboot'[/yellow]")
+            table.add_row("WHDLoad game DB", f"[yellow]{active} games (stub!) - run 'floppycase repair-whdboot'[/yellow]")
         else:
             table.add_row("WHDLoad game DB", f"{active} games")
     table.add_row("Configs", str(len(list_configs(paths))))

@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "easyamiga"
-version = "0.1.2"
+name = "floppycase"
+version = "0.2.0"
 description = "Plug-and-play setup for playing Amiga games on Linux with Amiberry"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
-authors = [{ name = "easyamiga contributors" }]
-keywords = ["amiga", "amiberry", "emulator", "whdload", "aros", "retro"]
+authors = [{ name = "FloppyCase contributors" }]
+keywords = ["floppycase", "amiga", "amiberry", "emulator", "whdload", "aros", "retro"]
 dependencies = [
     "typer>=0.12",
     "rich>=13.7",
@@ -22,17 +22,20 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-easyamiga = "easyamiga.cli:main"
-easyamiga-gui = "easyamiga.gui:main"
+floppycase = "floppycase.cli:main"
+floppycase-gui = "floppycase.gui:main"
 
 [project.urls]
+# Update these after renaming the GitHub repository to floppycase.
 Homepage = "https://github.com/pblasone/easyamiga"
+Issues = "https://github.com/pblasone/easyamiga/issues"
+Changelog = "https://github.com/pblasone/easyamiga/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-easyamiga = ["assets/*"]
+floppycase = ["assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

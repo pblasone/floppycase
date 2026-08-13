@@ -1,6 +1,6 @@
 """Amiga hardware model definitions.
 
-Each model captures the settings easyamiga needs to render an Amiberry ``.uae``
+Each model captures the settings floppycase needs to render an Amiberry ``.uae``
 configuration: chipset, CPU, and memory. Fast RAM defaults to the maximum amount
 commonly recommended for that machine (8 MB of Zorro-II autoconfig Fast RAM),
 which is what most WHDLoad games expect.

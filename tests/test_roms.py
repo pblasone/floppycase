@@ -1,7 +1,7 @@
 import struct
 import zlib
 
-from easyamiga.roms import crc32_of, detect_roms, pick_rom_for_model, KNOWN_ROMS
+from floppycase.roms import crc32_of, detect_roms, pick_rom_for_model, KNOWN_ROMS
 
 
 def _write_rom_with_crc(path, target_crc_hex, size=512 * 1024):
@@ -17,10 +17,10 @@ def _write_rom_with_crc(path, target_crc_hex, size=512 * 1024):
 
 def test_empty_roms_dir_falls_back_to_aros(tmp_path):
     """No Kickstarts in the ROM folder -> configs use Amiberry's built-in AROS."""
-    from easyamiga.config_gen import ConfigOptions, render_config
-    from easyamiga.models import get_model
-    from easyamiga.paths import Paths
-    from easyamiga.roms import default_model_key, detect_roms, pick_rom_for_model
+    from floppycase.config_gen import ConfigOptions, render_config
+    from floppycase.models import get_model
+    from floppycase.paths import Paths
+    from floppycase.roms import default_model_key, detect_roms, pick_rom_for_model
 
     paths = Paths.resolve(tmp_path)
     paths.ensure()
@@ -50,7 +50,7 @@ def test_detect_and_identify_known_rom(tmp_path, monkeypatch):
     expected = _write_rom_with_crc(rom, None)
 
     # Register a fake known ROM matching our generated file's CRC.
-    from easyamiga.roms import KnownRom
+    from floppycase.roms import KnownRom
 
     monkeypatch.setitem(KNOWN_ROMS, expected, KnownRom(expected, "Test KS (A1200)", "a1200", f"{expected.upper()},Test"))
 
@@ -63,7 +63,7 @@ def test_detect_and_identify_known_rom(tmp_path, monkeypatch):
 def test_pick_ignores_unusable_encrypted_rom(tmp_path):
     roms_dir = tmp_path / "roms"
     roms_dir.mkdir()
-    from easyamiga.roms import DetectedRom, KnownRom
+    from floppycase.roms import DetectedRom, KnownRom
 
     encrypted = DetectedRom(
         roms_dir / "enc.rom", "deadbeef", KnownRom("deadbeef", "Encrypted", "a1200", ""),
@@ -76,7 +76,7 @@ def test_pick_ignores_unusable_encrypted_rom(tmp_path):
 def test_pick_prefers_model_specific(tmp_path):
     roms_dir = tmp_path / "roms"
     roms_dir.mkdir()
-    from easyamiga.roms import DetectedRom, KnownRom
+    from floppycase.roms import DetectedRom, KnownRom
 
     a500 = DetectedRom(roms_dir / "a.rom", "aaaa1111", KnownRom("aaaa1111", "A500", "a500", "x"))
     a1200 = DetectedRom(roms_dir / "b.rom", "bbbb2222", KnownRom("bbbb2222", "A1200", "a1200", "y"))
@@ -92,7 +92,7 @@ def test_detect_ignores_tiny_files(tmp_path):
 
 
 def _encode(plaintext: bytes, key: bytes) -> bytes:
-    from easyamiga.roms import AMIROMTYPE1
+    from floppycase.roms import AMIROMTYPE1
 
     body = bytes(b ^ key[i % len(key)] for i, b in enumerate(plaintext))
     return AMIROMTYPE1 + body

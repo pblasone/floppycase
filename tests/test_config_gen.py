@@ -1,7 +1,7 @@
-from easyamiga.config_gen import ConfigOptions, render_config, write_config
-from easyamiga.models import get_model
-from easyamiga.paths import Paths
-from easyamiga.roms import DetectedRom, KNOWN_ROMS
+from floppycase.config_gen import ConfigOptions, render_config, write_config
+from floppycase.models import get_model
+from floppycase.paths import Paths
+from floppycase.roms import DetectedRom, KNOWN_ROMS
 
 
 def test_a500_aros_config(tmp_path):

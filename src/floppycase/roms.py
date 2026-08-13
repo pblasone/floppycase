@@ -1,12 +1,12 @@
 """Kickstart ROM detection (including Amiga Forever encoded ROMs).
 
 Amiberry identifies Kickstart ROMs by their CRC32 checksum regardless of
-filename, so easyamiga does the same: hash every file in the ROM directory and
+filename, so floppycase does the same: hash every file in the ROM directory and
 match it against a small database of well-known Kickstart images.
 
 Amiga Forever distributes ROMs in Cloanto's *encoded* form (an ``AMIROMTYPE1``
 header followed by the ROM XOR-scrambled with ``rom.key``). Amiberry cannot use
-these directly, so easyamiga decodes them with ``rom.key`` (a simple, well-known
+these directly, so floppycase decodes them with ``rom.key`` (a simple, well-known
 XOR transform) into plain ROM files that emulators recognise. When no key is
 present the ROM is flagged as encrypted so the user gets a clear message instead
 of a cryptic emulator crash.
@@ -25,15 +25,15 @@ AROS = ":AROS"
 #: Header on Cloanto/Amiga Forever encoded ROMs.
 AMIROMTYPE1 = b"AMIROMTYPE1"
 #: Legacy subfolder some older versions wrote decoded copies to (still ignored).
-DECODED_DIRNAME = "easyamiga-decoded"
-#: Suffix for the backup easyamiga keeps of an original encoded ROM before it
+DECODED_DIRNAME = "floppycase-decoded"
+#: Suffix for the backup floppycase keeps of an original encoded ROM before it
 #: decodes it in place.
 DECODED_BACKUP_SUFFIX = ".encoded"
 #: Common names for the Amiga Forever decode key.
 ROM_KEY_NAMES = {"rom.key"}
 #: Files/dirs to ignore when scanning (Amiberry's own AROS + MT32 assets).
 IGNORED_ROM_NAMES = {"aros-rom.bin", "aros-ext.bin"}
-IGNORED_DIRNAMES = {DECODED_DIRNAME, "mt32-roms"}
+IGNORED_DIRNAMES = {DECODED_DIRNAME, "easyamiga-decoded", "mt32-roms"}
 
 
 def _skip(path: Path) -> bool:
@@ -48,7 +48,7 @@ def _skip(path: Path) -> bool:
 class KnownRom:
     crc32: str  # lowercase hex, no prefix
     description: str
-    model: str  # easyamiga model key this ROM suits best
+    model: str  # FloppyCase model key this ROM suits best
     rom_id: str  # value for kickstart_rom_file_id
 
 

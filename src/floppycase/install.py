@@ -1,9 +1,9 @@
 """Installation routine: fetch everything needed to play.
 
 This installs the Amiberry emulator (via its official apt repository), the
-small system tools easyamiga needs, the WHDLoad distribution, and the easyamiga
+small system tools floppycase needs, the WHDLoad distribution, and the floppycase
 application icon. Network steps are best-effort and idempotent so re-running
-``easyamiga install`` is always safe.
+``floppycase install`` is always safe.
 """
 
 from __future__ import annotations
@@ -155,18 +155,18 @@ def install_whdload(paths: Paths, log=print) -> bool:
 
 # --- Icon ----------------------------------------------------------------------
 def install_icon(log=print) -> Path:
-    """Install the easyamiga icon into the user icon theme and return its path."""
+    """Install the floppycase icon into the user icon theme and return its path."""
     target_dir = Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
     target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / "easyamiga.svg"
-    source = resources.files("easyamiga.assets").joinpath("easyamiga.svg")
+    target = target_dir / "floppycase.svg"
+    source = resources.files("floppycase.assets").joinpath("floppycase.svg")
     target.write_bytes(source.read_bytes())
     log(f"Icon installed at {target}")
     return target
 
 
 def install_app_launcher(log=print) -> Path:
-    """Install a desktop-menu launcher for the easyamiga GUI."""
+    """Install a desktop-menu launcher for the floppycase GUI."""
     target = desktop.write_app_launcher()
     log(f"App launcher installed at {target}")
     return target
@@ -181,10 +181,10 @@ def _looks_like_rom(path: Path) -> bool:
 
 
 def effective_roms_dir(paths: Paths) -> Path:
-    """The directory easyamiga uses for Kickstart ROMs.
+    """The directory floppycase uses for Kickstart ROMs.
 
     When Amiberry is installed we use *its* ROM folder directly (single source
-    of truth, no copying), otherwise the local ``~/EasyAmiga/roms`` fallback.
+    of truth, no copying), otherwise the local ``~/FloppyCase/roms`` fallback.
     """
     if amiberry.is_installed():
         return amiberry.rom_path()
@@ -192,7 +192,7 @@ def effective_roms_dir(paths: Paths) -> Path:
 
 
 def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
-    """Copy ROMs/rom.key from the legacy ``~/EasyAmiga/roms`` into ``dest``.
+    """Copy ROMs/rom.key from the legacy ``~/FloppyCase/roms`` into ``dest``.
 
     Only copies files that aren't already present (by name); never deletes.
     """
@@ -202,7 +202,12 @@ def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
     dest.mkdir(parents=True, exist_ok=True)
     moved = 0
     for src in sorted(legacy.iterdir()):
-        if src.name == ".easyamiga-decoded" or src.name == "easyamiga-decoded":
+        if src.name in {
+            ".floppycase-decoded",
+            "floppycase-decoded",
+            ".easyamiga-decoded",
+            "easyamiga-decoded",
+        }:
             continue
         if not (src.is_file() and (_looks_like_rom(src) or src.name.lower() == "rom.key")):
             continue
@@ -222,8 +227,8 @@ def migrate_legacy_roms(paths: Paths, dest: Path, log=print) -> int:
 def sync_kickstarts(paths: Paths, log=print) -> int:
     """Ensure Kickstart ROMs are present and usable in Amiberry's ROM folder.
 
-    Migrates any legacy easyamiga ROMs into Amiberry's folder, then decodes
-    encoded Amiga Forever ROMs in place (into an ``easyamiga-decoded`` subfolder
+    Migrates any legacy floppycase ROMs into Amiberry's folder, then decodes
+    encoded Amiga Forever ROMs in place (into a ``floppycase-decoded`` subfolder
     that Amiberry's recursive scan also reads). Returns the count of usable ROMs.
     """
     if not amiberry.is_installed():

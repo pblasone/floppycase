@@ -1,6 +1,6 @@
 """Create freedesktop ``.desktop`` launchers so games are one click away.
 
-Each launcher runs ``easyamiga run <name>`` which boots Amiberry with the
+Each launcher runs ``floppycase run <name>`` which boots Amiberry with the
 game's generated config. Launchers are written to the per-user applications
 directory so they show up in the desktop's application menu.
 """
@@ -12,23 +12,23 @@ import shutil
 import sys
 from pathlib import Path
 
-APP_ID_PREFIX = "easyamiga-game-"
-APP_DESKTOP_ID = "easyamiga"
+APP_ID_PREFIX = "floppycase-game-"
+APP_DESKTOP_ID = "floppycase"
 
 
-def easyamiga_exe() -> str:
-    """Best-effort absolute path to the ``easyamiga`` executable.
+def floppycase_exe() -> str:
+    """Best-effort absolute path to the ``floppycase`` executable.
 
     Prefers the copy on ``PATH``, then the currently running script, so
     generated launchers work regardless of the desktop session's ``PATH``.
     """
-    exe = shutil.which("easyamiga")
+    exe = shutil.which("floppycase")
     if exe:
         return exe
     argv0 = Path(sys.argv[0]) if sys.argv and sys.argv[0] else None
-    if argv0 and argv0.name == "easyamiga" and argv0.exists():
+    if argv0 and argv0.name == "floppycase" and argv0.exists():
         return str(argv0.resolve())
-    return "easyamiga"
+    return "floppycase"
 
 
 def applications_dir() -> Path:
@@ -55,7 +55,7 @@ def render_desktop_entry(
     game_name: str,
     exec_command: str,
     icon: str,
-    comment: str = "Play an Amiga game with easyamiga",
+    comment: str = "Play an Amiga game with FloppyCase",
 ) -> str:
     return "\n".join(
         [
@@ -104,17 +104,17 @@ def app_desktop_file_path() -> Path:
     return applications_dir() / f"{APP_DESKTOP_ID}.desktop"
 
 
-def write_app_launcher(icon: str = "easyamiga") -> Path:
-    """Install a launcher for the easyamiga GUI itself into the app menu."""
+def write_app_launcher(icon: str = "floppycase") -> Path:
+    """Install a launcher for the floppycase GUI itself into the app menu."""
     directory = applications_dir()
     directory.mkdir(parents=True, exist_ok=True)
     entry = "\n".join(
         [
             "[Desktop Entry]",
             "Type=Application",
-            "Name=easyamiga",
+            "Name=FloppyCase",
             "Comment=Play Amiga games the easy way",
-            f"Exec={easyamiga_exe()} gui",
+            f"Exec={floppycase_exe()} gui",
             f"Icon={icon}",
             "Terminal=false",
             "Categories=Game;Emulator;Utility;",

@@ -1,8 +1,8 @@
-"""A simple, friendly desktop GUI for easyamiga.
+"""A simple, friendly desktop GUI for floppycase.
 
 The window scans the games folder and shows each game in an alphabetical list.
 Built with Tkinter so it has no extra Python dependencies (it only needs the
-system ``python3-tk`` package, which ``easyamiga install`` sets up).
+system ``python3-tk`` package, which ``floppycase install`` sets up).
 """
 
 from __future__ import annotations
@@ -84,15 +84,22 @@ def _read_field(path: Path, key: str) -> Optional[str]:
 def _label_for(config_path: Path) -> str:
     desc = _read_field(config_path, "config_description")
     if desc:
-        # Trim the leading "easyamiga: " / "easyamiga " noise for a cleaner card.
-        for prefix in ("easyamiga: ", "easyamiga "):
+        # Trim leading product-name noise for a cleaner list label.
+        for prefix in (
+            "FloppyCase: ",
+            "FloppyCase ",
+            "floppycase: ",
+            "floppycase ",
+            "easyamiga: ",
+            "easyamiga ",
+        ):
             if desc.startswith(prefix):
-                return desc[len(prefix):]
+                return desc[len(prefix) :]
         return desc
     return config_path.stem
 
 
-class EasyAmigaGUI:
+class FloppyCaseGUI:
     def __init__(self, base: Optional[str] = None) -> None:
         import tkinter as tk
         from tkinter import ttk
@@ -113,7 +120,7 @@ class EasyAmigaGUI:
         self._header_logo_img: tk.PhotoImage | None = None
 
         self.root = tk.Tk()
-        self.root.title("easyamiga")
+        self.root.title("FloppyCase")
         self.root.geometry("900x620")
         self.root.minsize(560, 420)
         self.root.configure(bg=BG)
@@ -187,7 +194,7 @@ class EasyAmigaGUI:
 
         text = tk.Frame(header, bg=BG)
         text.pack(side="left", padx=12)
-        tk.Label(text, text="easyamiga", bg=BG, fg=TEXT,
+        tk.Label(text, text="FloppyCase", bg=BG, fg=TEXT,
                  font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
         tk.Label(text, text="Click a game to play it on your Amiga",
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
@@ -205,7 +212,7 @@ class EasyAmigaGUI:
 
     def _load_header_logo_bytes(self) -> bytes:
         try:
-            return resources.files("easyamiga.assets").joinpath(HEADER_LOGO).read_bytes()
+            return resources.files("floppycase.assets").joinpath(HEADER_LOGO).read_bytes()
         except Exception:
             pass
         path = Path(__file__).resolve().parent / "assets" / HEADER_LOGO
@@ -213,7 +220,7 @@ class EasyAmigaGUI:
             return path.read_bytes()
         raise FileNotFoundError(
             f"Header logo not found ({HEADER_LOGO}). "
-            "Run 'pipx install . --force' from the easyamiga repo after pulling."
+            "Run 'pipx install . --force' from the floppycase repo after pulling."
         )
 
     def _default_model(self) -> str:
@@ -408,7 +415,7 @@ class EasyAmigaGUI:
         if not amiberry.is_installed():
             messagebox.showerror(
                 "Amiberry not found",
-                "Amiberry is not installed. Run 'easyamiga install' in a terminal first.",
+                "Amiberry is not installed. Run 'floppycase install' in a terminal first.",
             )
             return
 
@@ -1045,7 +1052,7 @@ class EasyAmigaGUI:
             self.banner.pack_forget()
         else:
             self.banner.configure(
-                text="  Amiberry is not installed. Run 'easyamiga install' in a "
+                text="  Amiberry is not installed. Run 'floppycase install' in a "
                      "terminal to enable playing games."
             )
             self.banner.pack(fill="x", before=self.canvas)
@@ -1055,10 +1062,10 @@ class EasyAmigaGUI:
 
 
 def run_gui(base: Optional[str] = None) -> None:
-    EasyAmigaGUI(base).run()
+    FloppyCaseGUI(base).run()
 
 
-def main() -> None:  # console-script entry point (easyamiga-gui)
+def main() -> None:  # console-script entry point (floppycase-gui)
     run_gui()
 
 

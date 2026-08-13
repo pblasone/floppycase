@@ -1,5 +1,5 @@
-from easyamiga import library
-from easyamiga.paths import Paths
+from floppycase import library
+from floppycase.paths import Paths
 
 
 def test_prettify_and_title():

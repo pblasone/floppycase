@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from easyamiga import desktop
-from easyamiga.games import (
+from floppycase import desktop
+from floppycase.games import (
     add_game,
     classify,
     discover_game_sources,
@@ -11,8 +11,8 @@ from easyamiga.games import (
     scan_games,
     set_menu_launcher,
 )
-from easyamiga.models import get_model
-from easyamiga.paths import Paths
+from floppycase.models import get_model
+from floppycase.paths import Paths
 
 
 def test_classify(tmp_path):
@@ -31,7 +31,7 @@ def test_classify(tmp_path):
 
 def test_add_adf_game_creates_config_and_launcher(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
 
     adf = tmp_path / "Lemmings.adf"
@@ -56,7 +56,7 @@ def test_add_adf_game_creates_config_and_launcher(tmp_path, monkeypatch):
 
 def test_add_whdload_folder(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
 
     folder = tmp_path / "SomeWHD"
@@ -71,14 +71,14 @@ def test_add_whdload_folder(tmp_path, monkeypatch):
 
 
 def test_desktop_slug_and_render():
-    entry = desktop.render_desktop_entry("Turrican II!", "easyamiga run turrican", "easyamiga")
+    entry = desktop.render_desktop_entry("Turrican II!", "floppycase run turrican", "floppycase")
     assert "Name=Turrican II!" in entry
-    assert desktop.desktop_file_path("Turrican II!").name == "easyamiga-game-turrican-ii.desktop"
+    assert desktop.desktop_file_path("Turrican II!").name == "floppycase-game-turrican-ii.desktop"
 
 
 def test_scan_registers_and_is_idempotent(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
 
     # Drop two games directly into the games folder.
@@ -106,13 +106,13 @@ def test_scan_registers_and_is_idempotent(tmp_path, monkeypatch):
 def test_resolve_launch_from_stale_config(tmp_path, monkeypatch):
     """A config without launch metadata still resolves to the .lha and WHDLoad."""
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     lha = paths.games / "WormsDC.lha"
     lha.write_bytes(b"x")
-    # Simulate an old easyamiga config: right name, no easyamiga_* metadata, A500.
+    # Simulate an old floppycase config: right name, no floppycase_* metadata, A500.
     stale = paths.configs / "WormsDC.uae"
-    stale.write_text("config_description=easyamiga: WormsDC (Amiga 500)\ncpu_model=68000\n")
+    stale.write_text("config_description=floppycase: WormsDC (Amiga 500)\ncpu_model=68000\n")
 
     source, kind = resolve_launch(paths, stale)
     assert source == lha
@@ -121,7 +121,7 @@ def test_resolve_launch_from_stale_config(tmp_path, monkeypatch):
 
 def test_scan_heals_stale_config(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     lha = paths.games / "WormsDC.lha"
     lha.write_bytes(b"x")
@@ -131,14 +131,14 @@ def test_scan_heals_stale_config(tmp_path, monkeypatch):
     scan_games(paths, get_model("a1200"))
     healed = stale.read_text()
     # The stale config is regenerated with launch metadata and the new model.
-    assert "easyamiga_source=" in healed
-    assert "easyamiga_kind=whdload" in healed
-    assert "easyamiga_model=a1200" in healed
+    assert "floppycase_source=" in healed
+    assert "floppycase_kind=whdload" in healed
+    assert "floppycase_model=a1200" in healed
 
 
 def test_scan_prunes_deleted_games(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     keep = paths.games / "Keeper.lha"
     keep.write_bytes(b"x")
@@ -156,10 +156,10 @@ def test_scan_prunes_deleted_games(tmp_path, monkeypatch):
 
 def test_prune_keeps_bare_machine_configs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    from easyamiga.config_gen import ConfigOptions, write_config
-    from easyamiga.games import prune_orphans
+    from floppycase.config_gen import ConfigOptions, write_config
+    from floppycase.games import prune_orphans
 
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     # A bare-machine config (no game source) must never be pruned.
     write_config(ConfigOptions(model=get_model("a500"), paths=paths), "a500")
@@ -169,7 +169,7 @@ def test_prune_keeps_bare_machine_configs(tmp_path, monkeypatch):
 
 def test_scan_does_not_create_launchers_by_default(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     (paths.games / "Chaos.adf").write_bytes(b"\x00" * (880 * 1024))
 
@@ -181,7 +181,7 @@ def test_scan_does_not_create_launchers_by_default(tmp_path, monkeypatch):
 
 def test_menu_launcher_toggle(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     adf = tmp_path / "Lemmings.adf"
     adf.write_bytes(b"\x00" * (880 * 1024))
@@ -204,5 +204,5 @@ def test_app_launcher_written(tmp_path, monkeypatch):
     target = desktop.write_app_launcher()
     assert target.exists()
     text = target.read_text()
-    assert "Name=easyamiga" in text
+    assert "Name=FloppyCase" in text
     assert "gui" in text

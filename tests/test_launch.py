@@ -1,10 +1,10 @@
 import pytest
 
-from easyamiga import amiberry
-from easyamiga.config_gen import ConfigOptions, read_meta, render_config, write_config
-from easyamiga.models import get_model
-from easyamiga.paths import Paths
-from easyamiga.roms import DetectedRom, KNOWN_ROMS, default_model_key
+from floppycase import amiberry
+from floppycase.config_gen import ConfigOptions, read_meta, render_config, write_config
+from floppycase.models import get_model
+from floppycase.paths import Paths
+from floppycase.roms import DetectedRom, KNOWN_ROMS, default_model_key
 
 FAKE_EXE = "/usr/bin/amiberry"
 
@@ -33,6 +33,23 @@ def test_config_records_launch_metadata(tmp_path):
     assert meta["source"] == str(game)
     assert meta["kind"] == "whdload"
     assert meta["model"] == "a1200"
+    assert "; floppycase_source=" in cfg.read_text()
+
+
+def test_read_meta_accepts_legacy_easyamiga_prefix(tmp_path):
+    cfg = tmp_path / "legacy.uae"
+    cfg.write_text(
+        "; easyamiga_source=/games/Old.lha\n"
+        "; easyamiga_kind=whdload\n"
+        "; easyamiga_model=a500\n",
+        encoding="utf-8",
+    )
+    meta = read_meta(cfg)
+    assert meta == {
+        "source": "/games/Old.lha",
+        "kind": "whdload",
+        "model": "a500",
+    }
 
 
 def test_adf_config_has_no_hd_mount(tmp_path):
@@ -56,11 +73,11 @@ def test_build_game_command_whdload_uses_autoload(tmp_path):
 
 
 def test_default_joyports_keyboard(monkeypatch):
-    monkeypatch.delenv("EASYAMIGA_JOYPORTS", raising=False)
+    monkeypatch.delenv("FLOPPYCASE_JOYPORTS", raising=False)
     assert amiberry.default_joyports() == "Md"
-    monkeypatch.setenv("EASYAMIGA_JOYPORTS", "off")
+    monkeypatch.setenv("FLOPPYCASE_JOYPORTS", "off")
     assert amiberry.default_joyports() is None
-    monkeypatch.setenv("EASYAMIGA_JOYPORTS", "01")
+    monkeypatch.setenv("FLOPPYCASE_JOYPORTS", "01")
     assert amiberry.default_joyports() == "01"
 
 
@@ -117,10 +134,10 @@ def test_clear_game_config_removes_cached_configs(tmp_path, monkeypatch):
 
 
 def test_effective_roms_dir_prefers_amiberry(tmp_path, monkeypatch):
-    from easyamiga import install
-    from easyamiga.paths import Paths
+    from floppycase import install
+    from floppycase.paths import Paths
 
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     amiga_dir = tmp_path / "Amiberry" / "ROMs"
 
     monkeypatch.setattr(install.amiberry, "is_installed", lambda: False)
@@ -134,7 +151,7 @@ def test_effective_roms_dir_prefers_amiberry(tmp_path, monkeypatch):
 def test_sha1_of_matches_hashlib(tmp_path):
     import hashlib
 
-    from easyamiga.roms import sha1_of
+    from floppycase.roms import sha1_of
 
     p = tmp_path / "x.lha"
     data = b"hello whdload" * 1000
@@ -145,7 +162,7 @@ def test_sha1_of_matches_hashlib(tmp_path):
 def test_load_whdload_db_indexes(tmp_path, monkeypatch):
     import json
 
-    from easyamiga import install
+    from floppycase import install
 
     gd = tmp_path / "WHDBoot" / "game-data"
     gd.mkdir(parents=True)
@@ -166,10 +183,10 @@ def test_load_whdload_db_indexes(tmp_path, monkeypatch):
 
 
 def test_migrate_legacy_roms_copies_once(tmp_path):
-    from easyamiga import install
-    from easyamiga.paths import Paths
+    from floppycase import install
+    from floppycase.paths import Paths
 
-    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths = Paths.resolve(tmp_path / "FloppyCase")
     paths.ensure()
     (paths.roms / "kick.rom").write_bytes(b"\x00" * (512 * 1024))
     (paths.roms / "rom.key").write_bytes(b"key")

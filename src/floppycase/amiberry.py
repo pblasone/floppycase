@@ -117,10 +117,10 @@ def default_joyports() -> str | None:
     """Default ``-J`` value: port0=mouse, port1=keyboard 'layout D' (cursor keys
     + Left Ctrl/Alt fire), so games are playable on a keyboard out of the box.
 
-    Override with ``EASYAMIGA_JOYPORTS`` (e.g. ``01`` for two real joysticks,
+    Override with ``FLOPPYCASE_JOYPORTS`` (e.g. ``01`` for two real joysticks,
     or ``none``/``off``/empty to leave Amiberry's own port setup untouched).
     """
-    value = os.environ.get("EASYAMIGA_JOYPORTS")
+    value = os.environ.get("FLOPPYCASE_JOYPORTS")
     if value is None:
         return "Md"
     value = value.strip()
@@ -149,7 +149,7 @@ def build_command(
     exe = amiberry or find_amiberry()
     if exe is None:
         raise FileNotFoundError(
-            "Amiberry is not installed. Run 'easyamiga install' first."
+            "Amiberry is not installed. Run 'floppycase install' first."
         )
     return [exe, "--config", str(config_path), *_joyport_args(joyports), *_set_args(options)]
 
@@ -158,7 +158,7 @@ def _exe_or_raise(amiberry: str | None) -> str:
     exe = amiberry or find_amiberry()
     if exe is None:
         raise FileNotFoundError(
-            "Amiberry is not installed. Run 'easyamiga install' first."
+            "Amiberry is not installed. Run 'floppycase install' first."
         )
     return exe
 

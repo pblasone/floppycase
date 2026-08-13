@@ -57,7 +57,7 @@ def _store_game(paths: Paths, source: Path) -> Path:
 
 
 def _exec_command(config_name: str) -> str:
-    return f'{desktop.easyamiga_exe()} run "{config_name}"'
+    return f'{desktop.floppycase_exe()} run "{config_name}"'
 
 
 def add_game(
@@ -67,7 +67,7 @@ def add_game(
     name: str | None = None,
     rom: DetectedRom | None = None,
     create_launcher: bool = False,
-    icon: str = "easyamiga",
+    icon: str = "floppycase",
     roms_dir: Path | None = None,
 ) -> Game:
     """Register a game: store it, generate a config, and add a desktop launcher."""
@@ -86,7 +86,7 @@ def add_game(
         rom=rom,
         floppy=floppy,
         show_gui=False,
-        description=f"easyamiga: {game_name} ({model.name})",
+        description=f"FloppyCase: {game_name} ({model.name})",
         source=stored,
         kind=kind,
         # ADF games boot the floppy directly; no games-HD mount needed.
@@ -126,7 +126,7 @@ def set_menu_launcher(
     key: str,
     enabled: bool,
     display_title: str | None = None,
-    icon: str = "easyamiga",
+    icon: str = "floppycase",
 ) -> Path | None:
     """Opt a game in or out of the desktop application menu."""
     library.set_game(paths, key, {"menu_launcher": enabled})
@@ -155,7 +155,7 @@ def list_configs(paths: Paths) -> list[Path]:
 def prune_orphans(paths: Paths) -> list[str]:
     """Remove configs + launchers for games whose source file no longer exists.
 
-    Only touches easyamiga game configs (those with a recorded ``source``); bare
+    Only touches floppycase game configs (those with a recorded ``source``); bare
     machine configs and anything without game metadata are left alone. Returns
     the names of the games that were pruned.
     """
