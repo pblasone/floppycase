@@ -14,8 +14,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
   on the command line.
 - `whdload_quit_on_exit` is now applied *before* `--autoload` so WHDLoad's
   startup-sequence actually includes AmiQuit.
-- GUI header logo is top-aligned with the FloppyCase title again (it had been
-  vertically centered after the hotkey tip line was added).
+- GUI header logo sits on a brand row beside the FloppyCase title again (the
+  hotkey tip had pulled it out of alignment).
 
 ## [0.2.2] - 2026-08-13
 
