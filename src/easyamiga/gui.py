@@ -7,6 +7,7 @@ system ``python3-tk`` package, which ``easyamiga install`` sets up).
 
 from __future__ import annotations
 
+import base64
 import subprocess
 import threading
 from importlib import resources
@@ -193,10 +194,25 @@ class EasyAmigaGUI:
         """Load the header PNG from packaged assets (keep a reference on ``self``)."""
         if self._header_logo_img is not None:
             return self._header_logo_img
-        source = resources.files("easyamiga.assets").joinpath(HEADER_LOGO)
-        with resources.as_file(source) as path:
-            self._header_logo_img = self.tk.PhotoImage(file=str(path))
+        data = self._load_header_logo_bytes()
+        # Embed bytes so this works from pip wheels, not only loose files on disk.
+        self._header_logo_img = self.tk.PhotoImage(
+            data=base64.b64encode(data),
+        )
         return self._header_logo_img
+
+    def _load_header_logo_bytes(self) -> bytes:
+        try:
+            return resources.files("easyamiga.assets").joinpath(HEADER_LOGO).read_bytes()
+        except Exception:
+            pass
+        path = Path(__file__).resolve().parent / "assets" / HEADER_LOGO
+        if path.is_file():
+            return path.read_bytes()
+        raise FileNotFoundError(
+            f"Header logo not found ({HEADER_LOGO}). "
+            "Run 'pipx install . --force' from the easyamiga repo after pulling."
+        )
 
     def _default_model(self) -> str:
         return default_model_key(detect_roms(self.roms_dir), DEFAULT_MODEL)
