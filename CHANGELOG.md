@@ -13,13 +13,14 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
   `amiberry.gfx_horizontal_offset` / `amiberry.gfx_vertical_offset` (the previous
   WinUAE `gfx_center_*_position` keys had no effect).
 - Many WHDLoad games cropped the top of the screen because the WHDLoad DB sets a
-  short height (e.g. 200). Default **Amiga screen** is now **720×284**, with
-  smart centering, matching the common Amiberry workaround.
+  short height (e.g. 200). Default **Amiga screen** is now **640×512**, with
+  smart centering (also offers 720×568 and 720×284).
 
 ### Added
 
-- **Amiga screen** setting (`720x284` / `default` / `auto`) in global and per-game
-  settings to control the Amiga framebuffer / crop size.
+- **Amiga screen** setting (`640x512` / `720x568` / `720x284` / `default` /
+  `auto`) in global and per-game settings to control the Amiga framebuffer /
+  crop size.
 
 ## [Unreleased]
 

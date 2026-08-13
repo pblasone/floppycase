@@ -53,8 +53,8 @@ def test_launch_args_mapping(tmp_path):
     assert "joyport1mode" not in opts
     # Default Amiga screen preset fits cropped WHDLoad titles.
     assert opts["amiberry.gfx_manual_crop"] == "true"
-    assert opts["amiberry.gfx_manual_crop_width"] == "720"
-    assert opts["amiberry.gfx_manual_crop_height"] == "284"
+    assert opts["amiberry.gfx_manual_crop_width"] == "640"
+    assert opts["amiberry.gfx_manual_crop_height"] == "512"
     assert opts["amiberry.gfx_auto_crop"] == "false"
     assert opts["gfx_center_horizontal"] == "smart"
     assert opts["gfx_center_vertical"] == "smart"
@@ -142,10 +142,17 @@ def test_launch_args_mapping(tmp_path):
 
 def test_amiga_screen_presets():
     _, opts = library.launch_args(
-        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "720x284"}
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "640x512"}
     )
-    assert opts["amiberry.gfx_manual_crop_height"] == "284"
+    assert opts["amiberry.gfx_manual_crop_width"] == "640"
+    assert opts["amiberry.gfx_manual_crop_height"] == "512"
     assert opts["gfx_center_vertical"] == "smart"
+
+    _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "720x568"}
+    )
+    assert opts["amiberry.gfx_manual_crop_width"] == "720"
+    assert opts["amiberry.gfx_manual_crop_height"] == "568"
 
     _, opts = library.launch_args(
         {
@@ -156,6 +163,7 @@ def test_amiga_screen_presets():
             "screen_offset_h": "8",
         }
     )
+    assert opts["amiberry.gfx_manual_crop_height"] == "284"
     assert opts["gfx_center_vertical"] == "none"
     assert opts["amiberry.gfx_horizontal_offset"] == "8"
 

@@ -22,10 +22,9 @@ DEFAULT_SETTINGS: dict = {
   "fullscreen": False,
   "scale": "2x",                  # 1x | 2x | 3x
   "filter": "none",               # none | crt
-  # Amiga framebuffer size seen by WHDLoad titles. Many RetroPlay XML entries
-  # use a short height (e.g. 200) which crops the top of the game; 720x284 is
-  # the practical full PAL viewport used by Amiberry users for "fit everything".
-  "amiga_screen": "720x284",      # default | 720x284 | auto
+  # Amiga framebuffer / manual-crop size seen by WHDLoad titles. Short RetroPlay
+  # heights (e.g. 200) crop the picture; taller presets show more of the screen.
+  "amiga_screen": "640x512",      # 640x512 | 720x568 | 720x284 | default | auto
   # Display alignment (``default`` = leave WHDLoad / Amiberry booter values)
   "screen_center_h": "default",   # default | none | simple | smart
   "screen_center_v": "default",
@@ -50,7 +49,7 @@ CONTROL_LAYOUTS: dict[str, str] = {
 }
 
 SCREEN_CENTER_CHOICES = ("default", "none", "simple", "smart")
-AMIGA_SCREEN_CHOICES = ("720x284", "default", "auto")
+AMIGA_SCREEN_CHOICES = ("640x512", "720x568", "720x284", "default", "auto")
 VIDEO_STANDARD_CHOICES = ("default", "pal", "ntsc")
 LINE_MODE_CHOICES = ("default", "single", "double")
 CD32_PAD_CHOICES = ("default", "on", "off")
@@ -58,6 +57,8 @@ STOP_KEYPRESS_CHOICES = ("default", "off", "on")
 
 # Amiga framebuffer sizes for the ``amiga_screen`` preset (not host window size).
 _AMIGA_SCREEN_PRESETS = {
+    "640x512": (640, 512),
+    "720x568": (720, 568),
     "720x284": (720, 284),
 }
 
@@ -216,9 +217,10 @@ def _apply_amiga_screen(eff: dict, opts: dict[str, str]) -> None:
 
     Amiberry's WHDLoad Booter maps XML ``SCREEN_HEIGHT`` into
     ``amiberry.gfx_manual_crop_*``. Short heights (often ~200) cut off the top
-    of many titles. ``720x284`` is the community default that fits PAL games.
+    of many titles. Default ``640x512`` is a full double-line viewport that
+    keeps more vertical content visible than the older 720×284 suggestion.
     """
-    preset = eff.get("amiga_screen", "720x284")
+    preset = eff.get("amiga_screen", "640x512")
     if preset in _AMIGA_SCREEN_PRESETS:
         width, height = _AMIGA_SCREEN_PRESETS[preset]
         opts["amiberry.gfx_auto_crop"] = "false"
