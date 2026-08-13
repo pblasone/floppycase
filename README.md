@@ -6,8 +6,8 @@ Getting classic Amiga games running on Linux normally means a "desert walk" of
 emulators, Kickstart ROMs, WHDLoad, hard-drive images and cryptic `.uae`
 configuration. `easyamiga` collapses that into a few commands: it installs the
 [Amiberry](https://github.com/BlitterStudio/amiberry) emulator, sets up a clean
-directory structure, auto-configures the right Amiga model for your ROM, and
-gives every game a clickable desktop icon.
+directory structure, auto-configures the right Amiga model for your ROM, and lets
+you add favorite games to your desktop app menu when you want them there.
 
 > Goal: go from *nothing* to *playing an Amiga game* with as little friction as
 > possible.
@@ -27,9 +27,10 @@ gives every game a clickable desktop icon.
   via Amiberry's WHDLoad Booter (no manual Workbench setup); ADF disk images
   boot the floppy directly. easyamiga makes your Kickstart ROMs visible to the
   booter automatically.
-- **Clickable game icons** – `easyamiga add-game` creates a freedesktop
-  `.desktop` launcher so a game is one click away from your Linux application
-  menu.
+- **Optional app-menu launchers** – tick **Menu** on a game in the GUI (or pass
+  `--launcher` on `add-game` / `scan`) to add a freedesktop `.desktop` entry so
+  you can launch favorites from your Linux application menu without opening the
+  easyamiga window.
 - **Friendly desktop app** – `easyamiga gui` opens a scrollable alphabetical list
   of your games; click the play icon (or double-click a row) to launch.
 - **Per-game settings & notes** – a cog on each row opens a dialog to set
@@ -99,8 +100,8 @@ easyamiga config          # auto-detects the ROM and picks the model
 # Scan the games folder and register everything found
 easyamiga scan
 
-# Add a single game and get a desktop icon for it
-easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
+# Add a single game (use --launcher to add it to your app menu)
+easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II" --launcher
 ```
 
 ## Commands
@@ -112,7 +113,7 @@ easyamiga add-game ~/Downloads/TurricanII --model a500 --name "Turrican II"
 | `easyamiga install` | Install Amiberry, WHDLoad and the app icon. |
 | `easyamiga config` | Generate an Amiberry config (auto-detects ROM/model). |
 | `easyamiga scan` | Scan the games folder and register every game found. |
-| `easyamiga add-game <path>` | Store a game, build its config, add a desktop icon. |
+| `easyamiga add-game <path>` | Store a game and build its config (`--launcher` adds an app-menu entry). |
 | `easyamiga run <name>` | Boot the game (WHDLoad auto-boot for `.lha`, floppy for ADF). |
 | `easyamiga sync-roms` | Decode (if needed) and refresh your Kickstarts in Amiberry's ROM folder. |
 | `easyamiga clean-configs [name]` | Reset the WHDLoad booter's cached game config(s). |

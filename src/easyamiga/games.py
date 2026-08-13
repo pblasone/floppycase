@@ -6,7 +6,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import desktop
+from . import desktop, library
 from .config_gen import ConfigOptions, read_meta, write_config
 from .models import AmigaModel
 from .paths import Paths
@@ -66,7 +66,7 @@ def add_game(
     model: AmigaModel,
     name: str | None = None,
     rom: DetectedRom | None = None,
-    create_launcher: bool = True,
+    create_launcher: bool = False,
     icon: str = "easyamiga",
     roms_dir: Path | None = None,
 ) -> Game:
@@ -101,7 +101,9 @@ def add_game(
             game_name,
             _exec_command(config_path.stem),
             icon,
+            slug=config_path.stem,
         )
+        library.set_game(paths, config_path.stem, {"menu_launcher": True})
 
     return Game(
         name=game_name,
@@ -109,6 +111,38 @@ def add_game(
         stored=stored,
         config_path=config_path,
         desktop_path=desktop_path,
+    )
+
+
+def menu_launcher_enabled(paths: Paths, key: str) -> bool:
+    """True when the game is opted into the desktop app menu (or has a legacy launcher)."""
+    if library.get_game(paths, key).get("menu_launcher"):
+        return True
+    return desktop.desktop_file_path(key).exists()
+
+
+def set_menu_launcher(
+    paths: Paths,
+    key: str,
+    enabled: bool,
+    display_title: str | None = None,
+    icon: str = "easyamiga",
+) -> Path | None:
+    """Opt a game in or out of the desktop application menu."""
+    library.set_game(paths, key, {"menu_launcher": enabled})
+    if not enabled:
+        desktop.remove_launcher(key)
+        return None
+    title = display_title or library.title_for(
+        key,
+        library.get_game(paths, key).get("display_name"),
+        None,
+    )
+    return desktop.write_launcher(
+        title,
+        _exec_command(key),
+        icon,
+        slug=key,
     )
 
 
@@ -182,7 +216,7 @@ def scan_games(
     paths: Paths,
     model: AmigaModel,
     rom: DetectedRom | None = None,
-    create_launchers: bool = True,
+    create_launchers: bool = False,
     overwrite: bool = False,
     roms_dir: Path | None = None,
     prune: bool = True,

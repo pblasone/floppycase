@@ -38,9 +38,9 @@ def applications_dir() -> Path:
     return base / "applications"
 
 
-def desktop_file_path(game_name: str) -> Path:
-    slug = _slug(game_name)
-    return applications_dir() / f"{APP_ID_PREFIX}{slug}.desktop"
+def desktop_file_path(slug: str) -> Path:
+    """Path to a game's ``.desktop`` file (``slug`` is the config stem)."""
+    return applications_dir() / f"{APP_ID_PREFIX}{_slug(slug)}.desktop"
 
 
 def _slug(name: str) -> str:
@@ -74,22 +74,26 @@ def render_desktop_entry(
 
 
 def write_launcher(
-    game_name: str,
+    display_name: str,
     exec_command: str,
     icon: str,
+    *,
+    slug: str | None = None,
 ) -> Path:
+    """Write a per-game launcher. ``slug`` is the config stem (defaults to ``display_name``)."""
     directory = applications_dir()
     directory.mkdir(parents=True, exist_ok=True)
-    target = desktop_file_path(game_name)
+    file_slug = slug or display_name
+    target = desktop_file_path(file_slug)
     target.write_text(
-        render_desktop_entry(game_name, exec_command, icon), encoding="utf-8"
+        render_desktop_entry(display_name, exec_command, icon), encoding="utf-8"
     )
     target.chmod(0o755)
     return target
 
 
-def remove_launcher(game_name: str) -> bool:
-    target = desktop_file_path(game_name)
+def remove_launcher(slug: str) -> bool:
+    target = desktop_file_path(slug)
     if target.exists():
         target.unlink()
         return True

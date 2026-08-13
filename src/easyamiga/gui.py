@@ -19,9 +19,11 @@ from .games import (
     add_game,
     discover_game_sources,
     list_configs,
+    menu_launcher_enabled,
     prune_orphans,
     resolve_launch,
     scan_games,
+    set_menu_launcher,
 )
 from .models import DEFAULT_MODEL, get_model
 from .paths import Paths
@@ -832,6 +834,13 @@ class EasyAmigaGUI:
             }
             library.set_game(self.paths, key, values)
             self._invalidate_library_cache()
+            if menu_launcher_enabled(self.paths, key):
+                set_menu_launcher(
+                    self.paths,
+                    key,
+                    True,
+                    display_title=name_var.get().strip() or None,
+                )
             win.destroy()
             self._update_row_after_save(config_path)
 
@@ -965,6 +974,38 @@ class EasyAmigaGUI:
         cog.bind("<Button-1>", lambda e, p=config_path: self.open_game_settings(p))
         self._row_widgets[stem]["cog"] = cog
 
+        menu_wrap = tk.Frame(row, bg=CARD)
+        menu_wrap.pack(side="right", padx=(0, 2))
+        menu_var = tk.BooleanVar(value=menu_launcher_enabled(self.paths, stem))
+
+        def on_menu_toggle() -> None:
+            set_menu_launcher(
+                self.paths,
+                stem,
+                menu_var.get(),
+                display_title=self._title_for(config_path),
+            )
+
+        menu_cb = tk.Checkbutton(
+            menu_wrap,
+            text="Menu",
+            variable=menu_var,
+            command=on_menu_toggle,
+            bg=CARD,
+            fg=MUTED,
+            activebackground=CARD,
+            activeforeground=TEXT,
+            selectcolor=INPUT_BG,
+            highlightthickness=0,
+            borderwidth=0,
+            font=("Sans", 9),
+            cursor="hand2",
+            padx=4,
+        )
+        menu_cb.pack(pady=6)
+        self._row_widgets[stem]["menu_cb"] = menu_cb
+        self._row_widgets[stem]["menu_wrap"] = menu_wrap
+
         for widget in (row, info, play_wrap, play):
             widget.bind("<Double-Button-1>", lambda e, p=config_path: self.play(p))
 
@@ -974,6 +1015,8 @@ class EasyAmigaGUI:
             title_label.configure(bg=CARD_HOVER)
             cog.configure(bg=CARD_HOVER)
             play_wrap.configure(bg=CARD_HOVER)
+            menu_wrap.configure(bg=CARD_HOVER)
+            menu_cb.configure(bg=CARD_HOVER, activebackground=CARD_HOVER)
             paint_play(CARD_HOVER)
         def on_leave(_):
             row.configure(bg=CARD)
@@ -981,6 +1024,8 @@ class EasyAmigaGUI:
             title_label.configure(bg=CARD)
             cog.configure(bg=CARD)
             play_wrap.configure(bg=CARD)
+            menu_wrap.configure(bg=CARD)
+            menu_cb.configure(bg=CARD, activebackground=CARD)
             paint_play(CARD)
         row.bind("<Enter>", on_enter)
         row.bind("<Leave>", on_leave)

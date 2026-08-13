@@ -210,7 +210,7 @@ def add_game(
     model: Optional[str] = typer.Option(None, "--model", "-m", help=f"Amiga model ({', '.join(MODELS)}). Auto-detected from ROM if omitted."),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Display name for the game."),
     rom: Optional[str] = typer.Option(None, "--rom", help="Kickstart ROM path (else auto-detect / AROS)."),
-    launcher: bool = typer.Option(True, help="Create a desktop launcher icon."),
+    launcher: bool = typer.Option(False, help="Add this game to the desktop app menu."),
 ) -> None:
     """Add a game: store it, build a config, and create a clickable desktop icon."""
     paths = _paths(base)
@@ -312,7 +312,7 @@ def list_cmd(base: Optional[str] = BaseOption) -> None:
 def scan(
     base: Optional[str] = BaseOption,
     model: Optional[str] = typer.Option(None, "--model", "-m", help=f"Model for newly found games ({', '.join(MODELS)}). Auto-detected from ROM if omitted."),
-    launcher: bool = typer.Option(True, help="Create desktop launchers for new games."),
+    launcher: bool = typer.Option(False, help="Add newly found games to the desktop app menu."),
     force: bool = typer.Option(False, "--force", help="Regenerate configs even if they already exist."),
 ) -> None:
     """Scan the games folder and register every game found."""

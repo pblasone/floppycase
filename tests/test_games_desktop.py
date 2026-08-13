@@ -6,8 +6,10 @@ from easyamiga.games import (
     classify,
     discover_game_sources,
     list_configs,
+    menu_launcher_enabled,
     resolve_launch,
     scan_games,
+    set_menu_launcher,
 )
 from easyamiga.models import get_model
 from easyamiga.paths import Paths
@@ -35,7 +37,7 @@ def test_add_adf_game_creates_config_and_launcher(tmp_path, monkeypatch):
     adf = tmp_path / "Lemmings.adf"
     adf.write_bytes(b"\x00" * (880 * 1024))
 
-    game = add_game(paths, adf, get_model("a500"), name="Lemmings")
+    game = add_game(paths, adf, get_model("a500"), name="Lemmings", create_launcher=True)
 
     assert game.kind == "adf"
     assert game.config_path.exists()
@@ -163,6 +165,38 @@ def test_prune_keeps_bare_machine_configs(tmp_path, monkeypatch):
     write_config(ConfigOptions(model=get_model("a500"), paths=paths), "a500")
     assert prune_orphans(paths) == []
     assert (paths.configs / "a500.uae").exists()
+
+
+def test_scan_does_not_create_launchers_by_default(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    (paths.games / "Chaos.adf").write_bytes(b"\x00" * (880 * 1024))
+
+    games = scan_games(paths, get_model("a500"))
+    assert len(games) == 1
+    assert games[0].desktop_path is None
+    assert not menu_launcher_enabled(paths, "Chaos")
+
+
+def test_menu_launcher_toggle(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    paths = Paths.resolve(tmp_path / "EasyAmiga")
+    paths.ensure()
+    adf = tmp_path / "Lemmings.adf"
+    adf.write_bytes(b"\x00" * (880 * 1024))
+    add_game(paths, adf, get_model("a500"), name="Lemmings", create_launcher=False)
+
+    assert not menu_launcher_enabled(paths, "Lemmings")
+    launcher = set_menu_launcher(paths, "Lemmings", True, display_title="Lemmings!")
+    assert launcher is not None and launcher.exists()
+    assert menu_launcher_enabled(paths, "Lemmings")
+    entry = launcher.read_text()
+    assert "Name=Lemmings!" in entry
+
+    set_menu_launcher(paths, "Lemmings", False)
+    assert not menu_launcher_enabled(paths, "Lemmings")
+    assert not launcher.exists()
 
 
 def test_app_launcher_written(tmp_path, monkeypatch):
