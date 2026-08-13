@@ -24,7 +24,7 @@ DEFAULT_SETTINGS: dict = {
   "filter": "none",               # none | crt
   # Amiga framebuffer / manual-crop size seen by WHDLoad titles. Short RetroPlay
   # heights (e.g. 200) crop the picture; taller presets show more of the screen.
-  "amiga_screen": "640x512",      # 640x512 | 720x568 | 720x284 | default | auto
+  "amiga_screen": "auto",          # auto | 640x512 | 720x568 | 720x284
   # Display alignment (``default`` = leave WHDLoad / Amiberry booter values)
   "screen_center_h": "default",   # default | none | simple | smart
   "screen_center_v": "default",
@@ -49,7 +49,7 @@ CONTROL_LAYOUTS: dict[str, str] = {
 }
 
 SCREEN_CENTER_CHOICES = ("default", "none", "simple", "smart")
-AMIGA_SCREEN_CHOICES = ("640x512", "720x568", "720x284", "default", "auto")
+AMIGA_SCREEN_CHOICES = ("auto", "640x512", "720x568", "720x284")
 VIDEO_STANDARD_CHOICES = ("default", "pal", "ntsc")
 LINE_MODE_CHOICES = ("default", "single", "double")
 CD32_PAD_CHOICES = ("default", "on", "off")
@@ -217,25 +217,26 @@ def _apply_amiga_screen(eff: dict, opts: dict[str, str]) -> None:
 
     Amiberry's WHDLoad Booter maps XML ``SCREEN_HEIGHT`` into
     ``amiberry.gfx_manual_crop_*``. Short heights (often ~200) cut off the top
-    of many titles. Default ``640x512`` is a full double-line viewport that
-    keeps more vertical content visible than the older 720×284 suggestion.
+    of many titles. Default ``auto`` lets Amiberry auto-crop; fixed sizes remain
+    available when a game needs a manual viewport, with per-game offsets.
     """
-    preset = eff.get("amiga_screen", "640x512")
-    if preset in _AMIGA_SCREEN_PRESETS:
+    preset = eff.get("amiga_screen", "auto")
+    if preset == "auto":
+        opts["amiberry.gfx_auto_crop"] = "true"
+        opts["amiberry.gfx_manual_crop"] = "false"
+    elif preset in _AMIGA_SCREEN_PRESETS:
         width, height = _AMIGA_SCREEN_PRESETS[preset]
         opts["amiberry.gfx_auto_crop"] = "false"
         opts["amiberry.gfx_manual_crop"] = "true"
         opts["amiberry.gfx_manual_crop_width"] = str(width)
         opts["amiberry.gfx_manual_crop_height"] = str(height)
-        # Smart centering pairs well with a full viewport; leave alone if the
+        # Smart centering pairs well with a fixed viewport; leave alone if the
         # user already chose an explicit center mode.
         if eff.get("screen_center_h", "default") == "default":
             opts["gfx_center_horizontal"] = "smart"
         if eff.get("screen_center_v", "default") == "default":
             opts["gfx_center_vertical"] = "smart"
-    elif preset == "auto":
-        opts["amiberry.gfx_auto_crop"] = "true"
-        opts["amiberry.gfx_manual_crop"] = "false"
+    # Legacy ``default`` (removed from the UI) = leave WHDLoad DB crop alone.
 
 
 def _apply_int_opt(opts: dict[str, str], key: str, raw) -> None:

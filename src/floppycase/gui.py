@@ -662,7 +662,7 @@ class FloppyCaseGUI:
         full = tk.StringVar(value="on" if d["fullscreen"] else "off")
         cd32 = tk.StringVar(value=d.get("cd32_pad", "default"))
         stop_kp = tk.StringVar(value=d.get("stop_keypresses", "default"))
-        amiga_screen = tk.StringVar(value=d.get("amiga_screen", "640x512"))
+        amiga_screen = tk.StringVar(value=d.get("amiga_screen", "auto"))
         center_h = tk.StringVar(value=d.get("screen_center_h", "default"))
         center_v = tk.StringVar(value=d.get("screen_center_v", "default"))
         offset_h = tk.StringVar(value=_blank_default(d.get("screen_offset_h", "default")))

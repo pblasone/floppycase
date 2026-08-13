@@ -51,13 +51,10 @@ def test_launch_args_mapping(tmp_path):
     assert opts["whdload_quit_on_exit"] == "true"
     assert "Ctrl+Alt" in opts["config_window_title"]
     assert "joyport1mode" not in opts
-    # Default Amiga screen preset fits cropped WHDLoad titles.
-    assert opts["amiberry.gfx_manual_crop"] == "true"
-    assert opts["amiberry.gfx_manual_crop_width"] == "640"
-    assert opts["amiberry.gfx_manual_crop_height"] == "512"
-    assert opts["amiberry.gfx_auto_crop"] == "false"
-    assert opts["gfx_center_horizontal"] == "smart"
-    assert opts["gfx_center_vertical"] == "smart"
+    # Default Amiga screen uses Amiberry auto-crop; per-game offsets fine-tune.
+    assert opts["amiberry.gfx_auto_crop"] == "true"
+    assert opts["amiberry.gfx_manual_crop"] == "false"
+    assert "amiberry.gfx_manual_crop_height" not in opts
 
     _, opts = library.launch_args(
         {"controls": "keyboard-numpad", "fullscreen": False, "scale": "2x", "filter": "none"}
@@ -142,6 +139,13 @@ def test_launch_args_mapping(tmp_path):
 
 def test_amiga_screen_presets():
     _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "auto"}
+    )
+    assert opts["amiberry.gfx_auto_crop"] == "true"
+    assert opts["amiberry.gfx_manual_crop"] == "false"
+    assert "amiberry.gfx_manual_crop_height" not in opts
+
+    _, opts = library.launch_args(
         {"controls": "gamepad", "fullscreen": True, "amiga_screen": "640x512"}
     )
     assert opts["amiberry.gfx_manual_crop_width"] == "640"
@@ -167,13 +171,7 @@ def test_amiga_screen_presets():
     assert opts["gfx_center_vertical"] == "none"
     assert opts["amiberry.gfx_horizontal_offset"] == "8"
 
-    _, opts = library.launch_args(
-        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "auto"}
-    )
-    assert opts["amiberry.gfx_auto_crop"] == "true"
-    assert opts["amiberry.gfx_manual_crop"] == "false"
-    assert "amiberry.gfx_manual_crop_height" not in opts
-
+    # Legacy library value ``default`` still means "leave WHDLoad alone".
     _, opts = library.launch_args(
         {"controls": "gamepad", "fullscreen": True, "amiga_screen": "default"}
     )
