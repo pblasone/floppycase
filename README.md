@@ -23,6 +23,7 @@ FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and t
 
 - Linux desktop (developed and tested on **Mint/Debian**)
 - **Python 3.10+**
+- `git` — needed for `pipx install` from GitHub
 - `pipx` — system `pip install` is blocked on modern Debian/Ubuntu/Mint
   (`externally-managed-environment`)
 - `python3-tk` for the GUI
@@ -60,12 +61,13 @@ FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and t
 
 ```bash
 # One-time system packages
-sudo apt install pipx python3-tk python3-venv
+sudo apt install git pipx python3-tk python3-venv
 pipx ensurepath
 # reopen the terminal if pipx ensurepath tells you to
 
 # Install FloppyCase itself (goes on your PATH via pipx)
-pipx install git+https://github.com/pblasone/floppycase.git
+# Package name is included so older pipx versions can resolve the git URL.
+pipx install 'floppycase @ git+https://github.com/pblasone/floppycase.git'
 
 # Create ~/FloppyCase and install the emulator + support files
 floppycase install
@@ -80,7 +82,7 @@ To upgrade later:
 ```bash
 pipx upgrade floppycase
 # or, to reinstall from GitHub:
-pipx install --force git+https://github.com/pblasone/floppycase.git
+pipx install --force 'floppycase @ git+https://github.com/pblasone/floppycase.git'
 ```
 
 ## Add some games
@@ -278,8 +280,11 @@ the directory layout look healthy, and prints the ROM folder FloppyCase is using
 
 Common fixes:
 
+- `pipx` cannot determine package name → use
+  `pipx install 'floppycase @ git+https://github.com/pblasone/floppycase.git'`
+  (and ensure `git` is installed: `sudo apt install git`)
 - GUI missing / Tk errors → `sudo apt install python3-tk`, then
-  `pipx install --force git+https://github.com/pblasone/floppycase.git`
+  `pipx install --force 'floppycase @ git+https://github.com/pblasone/floppycase.git'`
   and re-run `floppycase install`
 - Generic cog icon in the Mint/Ubuntu menu → upgrade, then
   `floppycase install` again (refreshes PNG icons + the `.desktop` file). Log
