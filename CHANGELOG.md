@@ -11,6 +11,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 - Start-menu icon on Linux Mint/Cinnamon: install PNG sizes, refresh the icon
   cache, and write an absolute `Icon=` path into the `.desktop` launcher.
+- Fullscreen launch option now sets Amiberry's `gfx_fullscreen_amiga` /
+  `gfx_fullscreen_picasso` to `fullwindow` (the previous key was ignored).
 
 ### Changed
 

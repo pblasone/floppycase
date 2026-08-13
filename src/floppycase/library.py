@@ -261,8 +261,14 @@ def launch_args(
     """
     opts: dict[str, str] = {}
     if eff.get("fullscreen"):
-        opts["gfx_fullscreen"] = "fullwindow"
+        # Amiberry .uae keys (not the old WinUAE-only ``gfx_fullscreen`` name).
+        # ``fullwindow`` = borderless desktop fullscreen; preferred over exclusive
+        # ``true`` which switches the monitor resolution.
+        opts["gfx_fullscreen_amiga"] = "fullwindow"
+        opts["gfx_fullscreen_picasso"] = "fullwindow"
     else:
+        opts["gfx_fullscreen_amiga"] = "false"
+        opts["gfx_fullscreen_picasso"] = "false"
         scale = str(eff.get("scale", "2x"))
         if scale in ("1x", "2x", "3x"):
             factor = int(scale[0])

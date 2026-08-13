@@ -43,7 +43,8 @@ def test_launch_args_mapping(tmp_path):
     assert opts["joyport1keyboardoverride"] == "yes"
     assert opts["input_keyboard_as_joystick_stop_keypresses"] == "no"
     assert opts["gfx_width"] == "1440" and opts["gfx_height"] == "1136"
-    assert "gfx_fullscreen" not in opts
+    assert opts["gfx_fullscreen_amiga"] == "false"
+    assert opts["gfx_fullscreen_picasso"] == "false"
     assert "joyport1mode" not in opts
 
     _, opts = library.launch_args(
@@ -119,7 +120,9 @@ def test_launch_args_mapping(tmp_path):
     joy, opts = library.launch_args({"controls": "gamepad", "fullscreen": True, "scale": "2x", "filter": "crt"})
     assert joy is None
     assert "joyport1" not in opts
-    assert opts["gfx_fullscreen"] == "fullwindow"
+    assert opts["gfx_fullscreen_amiga"] == "fullwindow"
+    assert opts["gfx_fullscreen_picasso"] == "fullwindow"
+    assert "gfx_fullscreen" not in opts
     assert "gfx_width" not in opts
     assert opts["shader"] == "crt"
 
