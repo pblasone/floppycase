@@ -5,19 +5,21 @@
 
 **Plug-and-play Amiga gaming on Linux.**
 
-Doing a manual setup for playing classic Amiga games on Linux can be a long and
-painstaking process involving installing and configuring several libraries. With
+Getting classic Amiga games to work on Linux can be a complicated and
+techincally advanced process involving installing and configuring several libraries. With
 `FloppyCase` the hard work is already done. Just install the app, add your games
 and purchased Amiga ROMs, and start playing.
+
+FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and the [Amiberry](https://amiberry.com/) Amiga emulator for you and configures them.
 
 > Goal: go from *nothing* to *playing an Amiga game* with as little friction as
 > possible.
 
 ## Requirements
 
-- Linux desktop (developed and tested on **Ubuntu/Debian**)
+- Linux desktop (developed and tested on **Mint/Debian**)
 - **Python 3.10+**
-- `pipx` — system `pip install` is blocked on modern Debian/Ubuntu
+- `pipx` — system `pip install` is blocked on modern Debian/Ubuntu/Mint
   (`externally-managed-environment`)
 - `python3-tk` for the GUI
 - Network access the first time you run `floppycase install`
@@ -278,14 +280,6 @@ the trademark holder.
   reporting install or launch problems.
 - Security reports: see [SECURITY.md](SECURITY.md).
 - Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Migrating from EasyAmiga
-
-This project was previously called **EasyAmiga**. FloppyCase still works with
-an existing `~/EasyAmiga` tree and the old `EASYAMIGA_HOME` environment
-variable. New installs default to `~/FloppyCase` / `FLOPPYCASE_HOME`. After
-reinstalling (`pipx install --force git+https://github.com/pblasone/floppycase.git`),
-update any personal scripts that called `easyamiga`.
 
 ## Development
 
