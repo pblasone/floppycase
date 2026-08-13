@@ -45,6 +45,10 @@ def test_launch_args_mapping(tmp_path):
     assert opts["gfx_width"] == "1440" and opts["gfx_height"] == "1136"
     assert opts["gfx_fullscreen_amiga"] == "false"
     assert opts["gfx_fullscreen_picasso"] == "false"
+    assert opts["ctrl_alt_release"] == "true"
+    assert opts["quit_amiberry"] == library.QUIT_HOTKEY
+    assert opts["fullscreen_toggle"] == library.FULLSCREEN_TOGGLE_HOTKEY
+    assert "Ctrl+Alt" in opts["config_window_title"]
     assert "joyport1mode" not in opts
 
     _, opts = library.launch_args(

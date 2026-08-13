@@ -5,6 +5,13 @@ All notable changes to FloppyCase are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-08-13
+
+### Added
+
+- Host hotkeys while playing: **F10** quits, **F11** toggles fullscreen, and
+  **Ctrl+Alt** releases the mouse (shown in the GUI and window title).
+
 ## [0.2.1] - 2026-08-13
 
 ### Fixed

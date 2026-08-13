@@ -130,6 +130,21 @@ ROMs that still need a key.
 Click the play icon (or double-click a row) to launch a game. Use the cog on a
 row for per-game controls, display options, and notes.
 
+### Host keys while a game is running
+
+Amiberry grabs the keyboard/mouse while its window has focus (so volume keys and
+other desktop shortcuts usually will not work until you release it):
+
+| Keys | Action |
+| --- | --- |
+| **Ctrl+Alt** (either side; AltGr+Ctrl also works) | Release the mouse back to Linux |
+| **F10** | Quit the emulator |
+| **F11** | Toggle fullscreen |
+| **F12** | Open the Amiberry GUI |
+
+After **Ctrl+Alt**, you can change volume, switch windows, etc., then click the
+Amiga window again to continue.
+
 ### Prefer the terminal?
 
 ```bash

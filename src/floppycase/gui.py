@@ -198,6 +198,13 @@ class FloppyCaseGUI:
                  font=("Sans", 22, "bold")).pack(anchor="w", pady=(0, 4))
         tk.Label(text, text="Click a game to play it on your Amiga",
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
+        tk.Label(
+            text,
+            text="While playing: Ctrl+Alt releases the mouse  ·  F10 quits  ·  F11 toggles fullscreen",
+            bg=BG,
+            fg=MUTED,
+            font=("Sans", 9),
+        ).pack(anchor="w", pady=(6, 0))
 
     def _header_logo(self) -> tk.PhotoImage:
         """Load the header PNG from packaged assets (keep a reference on ``self``)."""

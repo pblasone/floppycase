@@ -54,6 +54,12 @@ STOP_KEYPRESS_CHOICES = ("default", "off", "on")
 #: PAL-ish base resolution used to compute integer window scales.
 _BASE_W, _BASE_H = 720, 568
 
+#: Host hotkeys we always pass to Amiberry so players can leave fullscreen /
+#: release the mouse without hunting through Amiberry's own GUI.
+QUIT_HOTKEY = "F10"
+FULLSCREEN_TOGGLE_HOTKEY = "F11"
+WINDOW_TITLE_HINT = "Ctrl+Alt: mouse back to Linux  |  F10: quit  |  F11: fullscreen"
+
 
 def _path(paths: Paths) -> Path:
     return paths.base / LIBRARY_FILE
@@ -278,6 +284,13 @@ def launch_args(
     if eff.get("filter") == "crt":
         opts["shader"] = "crt"
     _apply_display_opts(eff, opts)
+
+    # Host escape hatches (Amiberry grabs the keyboard while the emu has focus,
+    # which also swallows laptop volume keys until the mouse is released).
+    opts["ctrl_alt_release"] = "true"
+    opts["quit_amiberry"] = QUIT_HOTKEY
+    opts["fullscreen_toggle"] = FULLSCREEN_TOGGLE_HOTKEY
+    opts["config_window_title"] = WINDOW_TITLE_HINT
 
     controls = eff.get("controls", "keyboard-arrows")
     if controls != "gamepad":
