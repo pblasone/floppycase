@@ -26,10 +26,9 @@ floppycase = "floppycase.cli:main"
 floppycase-gui = "floppycase.gui:main"
 
 [project.urls]
-# Update these after renaming the GitHub repository to floppycase.
-Homepage = "https://github.com/pblasone/easyamiga"
-Issues = "https://github.com/pblasone/easyamiga/issues"
-Changelog = "https://github.com/pblasone/easyamiga/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/pblasone/floppycase"
+Issues = "https://github.com/pblasone/floppycase/issues"
+Changelog = "https://github.com/pblasone/floppycase/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

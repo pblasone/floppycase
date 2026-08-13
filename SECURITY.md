@@ -9,7 +9,9 @@ released version on the default branch.
 
 Please **do not** open a public GitHub issue for security problems.
 
-Instead, email the maintainer at **patrick@blasone.dk** with:
+Use GitHub's
+[private vulnerability reporting](https://github.com/pblasone/floppycase/security/advisories/new)
+for this repository instead. Include:
 
 - a description of the issue and its impact
 - steps to reproduce, or a proof of concept if you have one
@@ -17,6 +19,10 @@ Instead, email the maintainer at **patrick@blasone.dk** with:
 
 You should receive an acknowledgement within a few days. Please give us a
 reasonable window to investigate and ship a fix before any public disclosure.
+
+If the private reporting form is unavailable, open a minimal public issue that
+says only that you need to share a security report (no technical details), and
+a maintainer will follow up privately.
 
 ## Scope notes
 

@@ -255,7 +255,7 @@ holder.
 ## Support
 
 - File bugs and feature requests in
-  [GitHub Issues](https://github.com/pblasone/easyamiga/issues).
+  [GitHub Issues](https://github.com/pblasone/floppycase/issues).
 - Include `floppycase doctor` output (and your distro / Python version) when
   reporting install or launch problems.
 - Security reports: see [SECURITY.md](SECURITY.md).

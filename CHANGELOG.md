@@ -20,7 +20,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - Public-beta README sections: status banner, requirements, disclaimer, known
   limitations, troubleshooting, and support.
 - Full GPL-3.0 license text plus third-party / trademark notes.
-- `SECURITY.md`, `CONTRIBUTING.md`, and this changelog.
+- `SECURITY.md` (GitHub private vulnerability reporting), `CONTRIBUTING.md`,
+  and this changelog.
 
 ### Compatibility
 

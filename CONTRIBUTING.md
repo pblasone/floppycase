@@ -9,8 +9,8 @@ Requirements: Ubuntu/Debian-like Linux, Python 3.10+, and `python3-tk` if you
 want to exercise the GUI.
 
 ```bash
-git clone https://github.com/pblasone/easyamiga.git
-cd easyamiga
+git clone https://github.com/pblasone/floppycase.git
+cd floppycase
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U -e ".[dev]"
