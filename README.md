@@ -138,7 +138,7 @@ other desktop shortcuts usually will not work until you release it):
 | Keys | Action |
 | --- | --- |
 | **Ctrl+Alt** (either side; AltGr+Ctrl also works) | Release the mouse back to Linux |
-| **F10** | Quit the emulator |
+| **F10** | Quit the emulator (also leaves WHDLoad games without stopping at Workbench) |
 | **F11** | Toggle fullscreen |
 | **F12** | Open the Amiberry GUI |
 

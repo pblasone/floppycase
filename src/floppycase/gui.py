@@ -200,7 +200,7 @@ class FloppyCaseGUI:
                  bg=BG, fg=MUTED, font=("Sans", 11)).pack(anchor="w")
         tk.Label(
             text,
-            text="While playing: Ctrl+Alt releases the mouse  ·  F10 quits  ·  F11 toggles fullscreen",
+            text="While playing: Ctrl+Alt releases the mouse  ·  F10 quits emulator  ·  F11 toggles fullscreen",
             bg=BG,
             fg=MUTED,
             font=("Sans", 9),

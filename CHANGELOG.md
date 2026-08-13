@@ -11,6 +11,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 - Host hotkeys while playing: **F10** quits, **F11** toggles fullscreen, and
   **Ctrl+Alt** releases the mouse (shown in the GUI and window title).
+- `whdload_quit_on_exit` so leaving a WHDLoad game closes Amiberry instead of
+  dropping you at Workbench/Shell.
 
 ## [0.2.1] - 2026-08-13
 

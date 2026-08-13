@@ -58,7 +58,7 @@ _BASE_W, _BASE_H = 720, 568
 #: release the mouse without hunting through Amiberry's own GUI.
 QUIT_HOTKEY = "F10"
 FULLSCREEN_TOGGLE_HOTKEY = "F11"
-WINDOW_TITLE_HINT = "Ctrl+Alt: mouse back to Linux  |  F10: quit  |  F11: fullscreen"
+WINDOW_TITLE_HINT = "Ctrl+Alt: mouse back to Linux  |  F10: quit emulator  |  F11: fullscreen"
 
 
 def _path(paths: Paths) -> Path:
@@ -291,6 +291,9 @@ def launch_args(
     opts["quit_amiberry"] = QUIT_HOTKEY
     opts["fullscreen_toggle"] = FULLSCREEN_TOGGLE_HOTKEY
     opts["config_window_title"] = WINDOW_TITLE_HINT
+    # WHDLoad's own quit (often F10) returns to Workbench; this closes Amiberry
+    # immediately afterwards so you are not left at a Shell prompt.
+    opts["whdload_quit_on_exit"] = "true"
 
     controls = eff.get("controls", "keyboard-arrows")
     if controls != "gamepad":

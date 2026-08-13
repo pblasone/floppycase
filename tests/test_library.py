@@ -48,6 +48,7 @@ def test_launch_args_mapping(tmp_path):
     assert opts["ctrl_alt_release"] == "true"
     assert opts["quit_amiberry"] == library.QUIT_HOTKEY
     assert opts["fullscreen_toggle"] == library.FULLSCREEN_TOGGLE_HOTKEY
+    assert opts["whdload_quit_on_exit"] == "true"
     assert "Ctrl+Alt" in opts["config_window_title"]
     assert "joyport1mode" not in opts
 
