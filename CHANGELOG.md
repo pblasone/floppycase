@@ -5,6 +5,14 @@ All notable changes to FloppyCase are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Document a `pipx` git install form that includes the package name
+  (`floppycase @ git+…`), which avoids “cannot determine package name” on
+  some machines; require `git` in the install prerequisites.
+
 ## [0.2.3] - 2026-08-13
 
 ### Fixed
