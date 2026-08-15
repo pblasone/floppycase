@@ -22,6 +22,9 @@ DEFAULT_SETTINGS: dict = {
   "fullscreen": False,
   "scale": "2x",                  # 1x | 2x | 3x
   "filter": "none",               # none | crt
+  # Amiga framebuffer / manual-crop size seen by WHDLoad titles. Short RetroPlay
+  # heights (e.g. 200) crop the picture; taller presets show more of the screen.
+  "amiga_screen": "auto",          # auto | 640x512 | 720x568 | 720x284
   # Display alignment (``default`` = leave WHDLoad / Amiberry booter values)
   "screen_center_h": "default",   # default | none | simple | smart
   "screen_center_v": "default",
@@ -30,7 +33,7 @@ DEFAULT_SETTINGS: dict = {
   # Video timing / viewport (fixes cropped tops on some titles)
   "video_standard": "default",    # default | pal | ntsc
   "line_mode": "default",         # default | single | double (scanline height)
-  "vertical_offset": "default",   # default | pixels (amiberry.gfx_vertical_offset)
+  "vertical_offset": "default",   # legacy alias for screen_offset_v
   # Input fine-tuning (mirrors Amiberry input / WHDLoad options)
   "cd32_pad": "default",          # default | on | off
   "stop_keypresses": "default",   # default | off | on
@@ -46,10 +49,18 @@ CONTROL_LAYOUTS: dict[str, str] = {
 }
 
 SCREEN_CENTER_CHOICES = ("default", "none", "simple", "smart")
+AMIGA_SCREEN_CHOICES = ("auto", "640x512", "720x568", "720x284")
 VIDEO_STANDARD_CHOICES = ("default", "pal", "ntsc")
 LINE_MODE_CHOICES = ("default", "single", "double")
 CD32_PAD_CHOICES = ("default", "on", "off")
 STOP_KEYPRESS_CHOICES = ("default", "off", "on")
+
+# Amiga framebuffer sizes for the ``amiga_screen`` preset (not host window size).
+_AMIGA_SCREEN_PRESETS = {
+    "640x512": (640, 512),
+    "720x568": (720, 568),
+    "720x284": (720, 284),
+}
 
 #: PAL-ish base resolution used to compute integer window scales.
 _BASE_W, _BASE_H = 720, 568
@@ -201,23 +212,59 @@ def needs_cd32_joystick_mode(hardware: dict | None) -> bool:
     return hardware.get("port0") == "cd32" or hardware.get("port1") == "cd32"
 
 
+def _apply_amiga_screen(eff: dict, opts: dict[str, str]) -> None:
+    """Override WHDLoad DB crop size so games are not clipped.
+
+    Amiberry's WHDLoad Booter maps XML ``SCREEN_HEIGHT`` into
+    ``amiberry.gfx_manual_crop_*``. Short heights (often ~200) cut off the top
+    of many titles. Default ``auto`` lets Amiberry auto-crop; fixed sizes remain
+    available when a game needs a manual viewport, with per-game offsets.
+    """
+    preset = eff.get("amiga_screen", "auto")
+    if preset == "auto":
+        opts["amiberry.gfx_auto_crop"] = "true"
+        opts["amiberry.gfx_manual_crop"] = "false"
+    elif preset in _AMIGA_SCREEN_PRESETS:
+        width, height = _AMIGA_SCREEN_PRESETS[preset]
+        opts["amiberry.gfx_auto_crop"] = "false"
+        opts["amiberry.gfx_manual_crop"] = "true"
+        opts["amiberry.gfx_manual_crop_width"] = str(width)
+        opts["amiberry.gfx_manual_crop_height"] = str(height)
+        # Smart centering pairs well with a fixed viewport; leave alone if the
+        # user already chose an explicit center mode.
+        if eff.get("screen_center_h", "default") == "default":
+            opts["gfx_center_horizontal"] = "smart"
+        if eff.get("screen_center_v", "default") == "default":
+            opts["gfx_center_vertical"] = "smart"
+    # Legacy ``default`` (removed from the UI) = leave WHDLoad DB crop alone.
+
+
+def _apply_int_opt(opts: dict[str, str], key: str, raw) -> None:
+    if raw in (None, "", "default"):
+        return
+    try:
+        opts[key] = str(int(str(raw).strip()))
+    except ValueError:
+        pass
+
+
 def _apply_display_opts(eff: dict, opts: dict[str, str]) -> None:
+    _apply_amiga_screen(eff, opts)
+
     h = eff.get("screen_center_h", "default")
     if h in ("none", "simple", "smart"):
         opts["gfx_center_horizontal"] = h
     v = eff.get("screen_center_v", "default")
     if v in ("none", "simple", "smart"):
         opts["gfx_center_vertical"] = v
-    for field, key in (
-        ("screen_offset_h", "gfx_center_horizontal_position"),
-        ("screen_offset_v", "gfx_center_vertical_position"),
-    ):
-        raw = eff.get(field, "default")
-        if raw not in (None, "", "default"):
-            try:
-                opts[key] = str(int(str(raw).strip()))
-            except ValueError:
-                pass
+
+    # WHDLoad Booter / Amiberry use these target offsets — NOT the WinUAE
+    # ``gfx_center_*_position`` keys we previously passed (which were ignored).
+    _apply_int_opt(opts, "amiberry.gfx_horizontal_offset", eff.get("screen_offset_h", "default"))
+    offset_v = eff.get("screen_offset_v", "default")
+    if offset_v in (None, "", "default"):
+        offset_v = eff.get("vertical_offset", "default")
+    _apply_int_opt(opts, "amiberry.gfx_vertical_offset", offset_v)
 
     vs = eff.get("video_standard", "default")
     if vs == "pal":
@@ -230,13 +277,6 @@ def _apply_display_opts(eff: dict, opts: dict[str, str]) -> None:
         opts["gfx_linemode"] = "none"
     elif lm == "double":
         opts["gfx_linemode"] = "double"
-
-    raw_vo = eff.get("vertical_offset", "default")
-    if raw_vo not in (None, "", "default"):
-        try:
-            opts["amiberry.gfx_vertical_offset"] = str(int(str(raw_vo).strip()))
-        except ValueError:
-            pass
 
 
 def _want_cd32_pad(eff: dict, hardware: dict | None) -> bool:

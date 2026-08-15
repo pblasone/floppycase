@@ -5,7 +5,25 @@ All notable changes to FloppyCase are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-08-13
+
+### Fixed
+
+- Display center/offset settings were ignored: offsets now use Amiberry's
+  `amiberry.gfx_horizontal_offset` / `amiberry.gfx_vertical_offset` (the previous
+  WinUAE `gfx_center_*_position` keys had no effect).
+- Many WHDLoad games cropped the top of the screen because the WHDLoad DB sets a
+  short height (e.g. 200). Default **Amiga screen** is now **auto** (Amiberry
+  auto-crop); fixed sizes **640×512**, **720×568**, and **720×284** remain
+  available, and per-game offsets work for fine-tuning.
+
+### Added
+
+- **Amiga screen** setting (`auto` / `640x512` / `720x568` / `720x284`) in
+  global and per-game settings to control the Amiga framebuffer / crop size.
+
 ## [Unreleased]
+
 
 ### Fixed
 

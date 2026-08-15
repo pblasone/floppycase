@@ -280,6 +280,7 @@ the directory layout look healthy, and prints the ROM folder FloppyCase is using
 
 Common fixes:
 
+- Game screen cropped at the top / shifted sideways → leave **Amiga screen** on **auto** (the default), or try **640x512** / **720x568** / **720x284**; use per-game Center/Offset to fine-tune.
 - `pipx` cannot determine package name → use
   `pipx install 'floppycase @ git+https://github.com/pblasone/floppycase.git'`
   (and ensure `git` is installed: `sudo apt install git`)

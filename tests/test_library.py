@@ -51,6 +51,10 @@ def test_launch_args_mapping(tmp_path):
     assert opts["whdload_quit_on_exit"] == "true"
     assert "Ctrl+Alt" in opts["config_window_title"]
     assert "joyport1mode" not in opts
+    # Default Amiga screen uses Amiberry auto-crop; per-game offsets fine-tune.
+    assert opts["amiberry.gfx_auto_crop"] == "true"
+    assert opts["amiberry.gfx_manual_crop"] == "false"
+    assert "amiberry.gfx_manual_crop_height" not in opts
 
     _, opts = library.launch_args(
         {"controls": "keyboard-numpad", "fullscreen": False, "scale": "2x", "filter": "none"}
@@ -90,8 +94,8 @@ def test_launch_args_mapping(tmp_path):
     )
     assert opts["gfx_center_horizontal"] == "smart"
     assert opts["gfx_center_vertical"] == "none"
-    assert opts["gfx_center_horizontal_position"] == "12"
-    assert opts["gfx_center_vertical_position"] == "-4"
+    assert opts["amiberry.gfx_horizontal_offset"] == "12"
+    assert opts["amiberry.gfx_vertical_offset"] == "-4"
     assert opts["input_keyboard_as_joystick_stop_keypresses"] == "yes"
 
     _, opts = library.launch_args(
@@ -130,6 +134,49 @@ def test_launch_args_mapping(tmp_path):
     assert "gfx_fullscreen" not in opts
     assert "gfx_width" not in opts
     assert opts["amiberry.shader"] == "crt"
+
+
+
+def test_amiga_screen_presets():
+    _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "auto"}
+    )
+    assert opts["amiberry.gfx_auto_crop"] == "true"
+    assert opts["amiberry.gfx_manual_crop"] == "false"
+    assert "amiberry.gfx_manual_crop_height" not in opts
+
+    _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "640x512"}
+    )
+    assert opts["amiberry.gfx_manual_crop_width"] == "640"
+    assert opts["amiberry.gfx_manual_crop_height"] == "512"
+    assert opts["gfx_center_vertical"] == "smart"
+
+    _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "720x568"}
+    )
+    assert opts["amiberry.gfx_manual_crop_width"] == "720"
+    assert opts["amiberry.gfx_manual_crop_height"] == "568"
+
+    _, opts = library.launch_args(
+        {
+            "controls": "gamepad",
+            "fullscreen": True,
+            "amiga_screen": "720x284",
+            "screen_center_v": "none",
+            "screen_offset_h": "8",
+        }
+    )
+    assert opts["amiberry.gfx_manual_crop_height"] == "284"
+    assert opts["gfx_center_vertical"] == "none"
+    assert opts["amiberry.gfx_horizontal_offset"] == "8"
+
+    # Legacy library value ``default`` still means "leave WHDLoad alone".
+    _, opts = library.launch_args(
+        {"controls": "gamepad", "fullscreen": True, "amiga_screen": "default"}
+    )
+    assert "amiberry.gfx_manual_crop_height" not in opts
+    assert "amiberry.gfx_auto_crop" not in opts
 
 
 def test_hardware_from_db_and_cd32_detection():

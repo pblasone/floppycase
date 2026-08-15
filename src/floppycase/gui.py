@@ -33,6 +33,7 @@ CONTROL_CHOICES = list(library.CONTROL_LAYOUTS.keys()) + ["gamepad"]
 SCALE_CHOICES = ["1x", "2x", "3x"]
 FILTER_CHOICES = ["none", "crt"]
 SCREEN_CENTER_CHOICES = list(library.SCREEN_CENTER_CHOICES)
+AMIGA_SCREEN_CHOICES = list(library.AMIGA_SCREEN_CHOICES)
 VIDEO_STANDARD_CHOICES = list(library.VIDEO_STANDARD_CHOICES)
 LINE_MODE_CHOICES = list(library.LINE_MODE_CHOICES)
 CD32_PAD_CHOICES = list(library.CD32_PAD_CHOICES)
@@ -661,6 +662,7 @@ class FloppyCaseGUI:
         full = tk.StringVar(value="on" if d["fullscreen"] else "off")
         cd32 = tk.StringVar(value=d.get("cd32_pad", "default"))
         stop_kp = tk.StringVar(value=d.get("stop_keypresses", "default"))
+        amiga_screen = tk.StringVar(value=d.get("amiga_screen", "auto"))
         center_h = tk.StringVar(value=d.get("screen_center_h", "default"))
         center_v = tk.StringVar(value=d.get("screen_center_v", "default"))
         offset_h = tk.StringVar(value=_blank_default(d.get("screen_offset_h", "default")))
@@ -673,6 +675,7 @@ class FloppyCaseGUI:
         widgets.append(self._dropdown(body, "Fullscreen", full, ["off", "on"]))
         widgets.append(self._dropdown(body, "Window scale", scale, SCALE_CHOICES))
         widgets.append(self._dropdown(body, "Filter", filt, FILTER_CHOICES))
+        widgets.append(self._dropdown(body, "Amiga screen", amiga_screen, AMIGA_SCREEN_CHOICES))
         widgets.append(self._dropdown(body, "Video standard", video_std, VIDEO_STANDARD_CHOICES))
         widgets.append(self._dropdown(body, "Line mode", line_mode, LINE_MODE_CHOICES))
         widgets.append(self._dropdown(body, "Center horizontal", center_h, SCREEN_CENTER_CHOICES))
@@ -695,6 +698,7 @@ class FloppyCaseGUI:
                 "filter": filt.get(),
                 "cd32_pad": cd32.get(),
                 "stop_keypresses": stop_kp.get(),
+                "amiga_screen": amiga_screen.get(),
                 "screen_center_h": center_h.get(),
                 "screen_center_v": center_v.get(),
                 "screen_offset_h": offset_h.get().strip() or "default",
@@ -745,6 +749,7 @@ class FloppyCaseGUI:
         filt = tk.StringVar(value=library.display_value(g, defaults, "filter"))
         cd32 = tk.StringVar(value=library.display_value(g, defaults, "cd32_pad"))
         stop_kp = tk.StringVar(value=library.display_value(g, defaults, "stop_keypresses"))
+        amiga_screen = tk.StringVar(value=library.display_value(g, defaults, "amiga_screen"))
         center_h = tk.StringVar(value=library.display_value(g, defaults, "screen_center_h"))
         center_v = tk.StringVar(value=library.display_value(g, defaults, "screen_center_v"))
         offset_h = tk.StringVar(value=library.display_entry_value(g, defaults, "screen_offset_h"))
@@ -765,6 +770,10 @@ class FloppyCaseGUI:
         widgets.append(self._dropdown(
             body, "Filter", filt, FILTER_CHOICES,
             inherited=library.field_inherited(g, "filter"),
+        ))
+        widgets.append(self._dropdown(
+            body, "Amiga screen", amiga_screen, list(AMIGA_SCREEN_CHOICES),
+            inherited=library.field_inherited(g, "amiga_screen"),
         ))
         widgets.append(self._dropdown(
             body, "Video standard", video_std, list(VIDEO_STANDARD_CHOICES),
@@ -841,6 +850,7 @@ class FloppyCaseGUI:
                 "filter": library.store_if_matches_global(filt.get(), defaults, "filter"),
                 "cd32_pad": library.store_if_matches_global(cd32.get(), defaults, "cd32_pad"),
                 "stop_keypresses": library.store_if_matches_global(stop_kp.get(), defaults, "stop_keypresses"),
+                "amiga_screen": library.store_if_matches_global(amiga_screen.get(), defaults, "amiga_screen"),
                 "screen_center_h": library.store_if_matches_global(center_h.get(), defaults, "screen_center_h"),
                 "screen_center_v": library.store_if_matches_global(center_v.get(), defaults, "screen_center_v"),
                 "screen_offset_h": library.store_if_matches_global(
