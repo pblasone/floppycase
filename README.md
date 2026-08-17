@@ -19,45 +19,7 @@ FloppyCase automatically fetches the [WHDLoad](https://whdload.de/) helper and t
 > Goal: go from *nothing* to *playing an Amiga game* with as little friction as
 > possible.
 
-## Requirements
-
-- Linux desktop (developed and tested on **Mint/Debian**)
-- **Python 3.10+**
-- `git` — needed for `pipx install` from GitHub
-- `pipx` — system `pip install` is blocked on modern Debian/Ubuntu/Mint
-  (`externally-managed-environment`)
-- `python3-tk` for the GUI
-- Network access the first time you run `floppycase install`
-
-## What it does
-
-- **One-command setup** – installs the emulator backend, WHDLoad support, the
-  `~/FloppyCase` folder layout, and a desktop launcher.
-- **Tidy directory layout** – a single `~/FloppyCase` folder with `games/`,
-  `workbench/`, `configs/`, `whdload/` and `downloads/`. Kickstart ROMs live in
-  the emulator's ROM folder (one place only).
-- **Automatic configuration** – detects your Kickstart ROM by CRC32 and picks
-  the matching model (**A500** or **A1200**) with the correct chipset/CPU and
-  the **maximum recommended Fast RAM** (8 MB). If no ROM is present it falls
-  back to the built-in **AROS** Kickstart replacement, so you can boot an Amiga
-  with zero copyrighted files.
-- **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game;
-  ADF disk images boot the floppy directly.
-- **Optional start-menu launchers** – tick **Add to start menu** on a game in
-  the GUI (or pass `--launcher` on `add-game` / `scan`) to add a freedesktop
-  `.desktop` entry so you can launch favorites from your Linux application menu
-  without opening the FloppyCase window. Off by default.
-- **Friendly desktop app** – `floppycase gui` opens a scrollable alphabetical list
-  of your games; click the play icon (or double-click a row) to launch.
-- **Per-game settings & notes** – a cog on each row opens a dialog to set
-  controls, window scale, fullscreen and a display filter, plus a free-text
-  **notes** field to remember what you worked out for a game. A global
-  **Settings** dialog sets the defaults for everything.
-- **Playable on a keyboard** – games launch with keyboard-as-joystick by
-  default (cursor keys + Space to fire); switch to numpad or a gamepad per game
-  or globally.
-
-## Install FloppyCase and dependencies
+## Get started right away
 
 ```bash
 # One-time system packages
@@ -258,6 +220,44 @@ config regenerates against your current ROMs.
   the auto-detected model and your Kickstart.
 
 Run `floppycase doctor` if something will not start.
+
+## Requirements
+
+- Linux desktop (developed and tested on **Mint/Debian**)
+- **Python 3.10+**
+- `git` — needed for `pipx install` from GitHub
+- `pipx` — system `pip install` is blocked on modern Debian/Ubuntu/Mint
+  (`externally-managed-environment`)
+- `python3-tk` for the GUI
+- Network access the first time you run `floppycase install`
+
+## What does FLoppyCase do?
+
+- **One-command setup** – installs the emulator backend, WHDLoad support, the
+  `~/FloppyCase` folder layout, and a desktop launcher.
+- **Tidy directory layout** – a single `~/FloppyCase` folder with `games/`,
+  `workbench/`, `configs/`, `whdload/` and `downloads/`. Kickstart ROMs live in
+  the emulator's ROM folder (one place only).
+- **Automatic configuration** – detects your Kickstart ROM by CRC32 and picks
+  the matching model (**A500** or **A1200**) with the correct chipset/CPU and
+  the **maximum recommended Fast RAM** (8 MB). If no ROM is present it falls
+  back to the built-in **AROS** Kickstart replacement, so you can boot an Amiga
+  with zero copyrighted files.
+- **Real click-to-play** – WHDLoad games (`.lha`) boot straight into the game;
+  ADF disk images boot the floppy directly.
+- **Optional start-menu launchers** – tick **Add to start menu** on a game in
+  the GUI (or pass `--launcher` on `add-game` / `scan`) to add a freedesktop
+  `.desktop` entry so you can launch favorites from your Linux application menu
+  without opening the FloppyCase window. Off by default.
+- **Friendly desktop app** – `floppycase gui` opens a scrollable alphabetical list
+  of your games; click the play icon (or double-click a row) to launch.
+- **Per-game settings & notes** – a cog on each row opens a dialog to set
+  controls, window scale, fullscreen and a display filter, plus a free-text
+  **notes** field to remember what you worked out for a game. A global
+  **Settings** dialog sets the defaults for everything.
+- **Playable on a keyboard** – games launch with keyboard-as-joystick by
+  default (cursor keys + Space to fire); switch to numpad or a gamepad per game
+  or globally.
 
 ## Known limitations
 
